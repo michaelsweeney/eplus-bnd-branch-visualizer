@@ -47,7 +47,7 @@ Large Office VAV / Hospital / Small Office).
 - Run `npm test` for the parser/graph/layout/units/prep/export suites.
 - Hash params: `#dataset=<key>` or `#bnd=/#geometry=/#data=<url>` pick
   the data; `#t=<index>`, `#play=1`, `#sel=<zone name>`,
-  `#theme=mario`, `#layout=system|organic|units`, `#collapse=all`
+  `#theme=light`, `#layout=system|organic|units`, `#collapse=all`
   restore a shareable app state.
 
 ## End-to-end demo (validated 2026-06-12)

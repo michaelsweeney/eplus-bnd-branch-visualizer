@@ -13,9 +13,6 @@ Feature queue for the prototype, roughly ordered. Items marked (Mike,
   Loop kind + object class are explicit in the .bnd; loop *function*
   (HW/CHW/CW) reuses the playback-driven classifier behind the System
   palette.
-- **Light mode** (Mike, 2026-06-12): theme system already supports
-  multiple cy stylesheets + CSS var sets (pro/mario); add a light
-  engineering theme as a third option.
 - **Flow particles / stronger motion**: marching dashes are in; a canvas
   overlay synced to cy's viewport transform could draw per-edge particle
   advection (speed ∝ velocity) without changing render engines. Only if
@@ -40,7 +37,12 @@ Feature queue for the prototype, roughly ordered. Items marked (Mike,
   playing.
 - System palette default (air amber / HW red / CHW blue / CW green),
   loop function classified from operating temps, not names.
-- 8-bit theme (pipes green, ducts silver, Press Start 2P).
+- Dark + light engineering themes (8-bit theme built then retired
+  2026-06-12 per Mike).
+- Systems tree with jump-to navigation; plant loop sides merged into
+  one unit per loop.
+- Mini chart overlay: selection sparklines with live time marker.
+- SI / IP display unit toggle (°C↔°F, kg/s↔lb/min).
 - Panel splitters (graph/3D, inspector) + per-panel collapse.
 - Hospital demo dataset + dataset selector.
 - State-sharing hash params: dataset/theme/layout/collapse/t/play/sel.

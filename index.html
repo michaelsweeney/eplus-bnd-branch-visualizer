@@ -5,7 +5,7 @@
 <title>BND·VIZ — EnergyPlus system explorer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -22,17 +22,21 @@
     <button data-metric="temperature">Temperature</button>
     <button data-metric="massFlow">Flow</button>
   </div>
-  <div id="themeToggle" class="" style="display:flex;border:1px solid var(--hairline-2);border-radius:4px;overflow:hidden">
-    <button data-theme="pro" class="on" style="appearance:none;border:0;background:var(--panel-2);color:var(--ink-dim);font:600 11px/1 var(--sans);letter-spacing:0.08em;padding:8px 12px;cursor:pointer">PRO</button>
-    <button data-theme="mario" style="appearance:none;border:0;border-left:1px solid var(--hairline-2);background:var(--panel-2);color:var(--ink-dim);font:600 11px/1 var(--sans);letter-spacing:0.08em;padding:8px 12px;cursor:pointer">8-BIT</button>
+  <div id="themeToggle" style="display:flex;border:1px solid var(--hairline-2);border-radius:4px;overflow:hidden">
+    <button data-theme="dark" class="on" style="appearance:none;border:0;background:var(--panel-2);color:var(--ink-dim);font:600 11px/1 var(--sans);letter-spacing:0.08em;padding:8px 12px;cursor:pointer">DARK</button>
+    <button data-theme="light" style="appearance:none;border:0;border-left:1px solid var(--hairline-2);background:var(--panel-2);color:var(--ink-dim);font:600 11px/1 var(--sans);letter-spacing:0.08em;padding:8px 12px;cursor:pointer">LIGHT</button>
+  </div>
+  <div id="unitToggle" style="display:flex;border:1px solid var(--hairline-2);border-radius:4px;overflow:hidden">
+    <button data-units="si" class="on" style="appearance:none;border:0;background:var(--panel-2);color:var(--ink-dim);font:600 11px/1 var(--sans);letter-spacing:0.08em;padding:8px 12px;cursor:pointer">SI</button>
+    <button data-units="ip" style="appearance:none;border:0;border-left:1px solid var(--hairline-2);background:var(--panel-2);color:var(--ink-dim);font:600 11px/1 var(--sans);letter-spacing:0.08em;padding:8px 12px;cursor:pointer">IP</button>
   </div>
   <div id="spacer"></div>
   <div id="legend">
     <div class="legendItem"><span>temp</span><span class="legendBar" id="legendTempBar"></span>
       <input class="scaleIn" id="scaleTempMin" title="temp scale min (blank = auto)"> –
-      <input class="scaleIn" id="scaleTempMax" title="temp scale max (blank = auto)"> °C</div>
+      <input class="scaleIn" id="scaleTempMax" title="temp scale max (blank = auto)"> <span id="legendTempUnitLbl">°C</span></div>
     <div class="legendItem"><span>flow</span><span class="legendBar" id="legendFlowBar"></span>
-      0 – <input class="scaleIn" id="scaleFlowMax" title="flow scale max (blank = auto)"> kg/s</div>
+      0 – <input class="scaleIn" id="scaleFlowMax" title="flow scale max (blank = auto)"> <span id="legendFlowUnitLbl">kg/s</span></div>
     <select id="rampPick" title="temperature colorscale">
       <option value="thermal">thermal</option>
       <option value="coolwarm">coolwarm</option>
@@ -76,6 +80,11 @@
       </div>
       <div id="cy"></div>
       <div id="graphEmpty">drop an EnergyPlus .bnd file</div>
+    </div>
+    <div id="miniChart">
+      <div id="miniChartHead"><span id="miniChartTitle"></span><button id="miniChartClose" title="hide">×</button></div>
+      <canvas id="miniChartCanvas"></canvas>
+      <div id="miniLegend"></div>
     </div>
     <div class="splitter" id="splitPanes"></div>
     <div class="pane" id="zonePane">

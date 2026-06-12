@@ -66,11 +66,10 @@ test('assignUnits groups by air loop, plant side, air path, and zone equipment',
   const { units, unitOf } = assignUnits(model, graph);
 
   assert.equal(unitOf['FAN:VARIABLEVOLUME|FAN 1'], 'unit|AHU|VAV_1');
-  assert.equal(unitOf['PUMP:VARIABLESPEED|HW PUMP'], 'unit|SIDE|HEATSYS1|supply');
+  // supply and demand sides merge into one unit per loop
+  assert.equal(unitOf['PUMP:VARIABLESPEED|HW PUMP'], 'unit|LOOP|HEATSYS1');
   assert.equal(unitOf['AIRLOOPHVAC:ZONESPLITTER|SPLITTER 1'], 'unit|DIST|VAV_1');
-  // connector records say kind=Plant side=Supply; branch records say
-  // "Plant Supply" — both must land in the SAME unit
-  assert.equal(unitOf['CONNECTOR:SPLITTER|HW SPLIT'], 'unit|SIDE|HEATSYS1|supply');
+  assert.equal(unitOf['CONNECTOR:SPLITTER|HW SPLIT'], 'unit|LOOP|HEATSYS1');
   assert.equal(unitOf['ZONE|CORE_ZN'], undefined);
   assert.equal(units['unit|AHU|VAV_1'].type, 'ahu');
   assert.equal(units['unit|AHU|VAV_1'].members.length, 1);

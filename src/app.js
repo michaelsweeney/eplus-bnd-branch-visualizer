@@ -25,7 +25,7 @@ let dashRaf = null;
 let selectedTimeIndex = 0;
 let currentMetric = 'system';
 let loopFunctionColors = null; // loopName -> hex, from classifyLoops()
-let currentTheme = 'pro';
+let currentTheme = 'dark';
 let units = null;             // { units, unitOf } from assignUnits
 let collapsedSet = new Set(); // unit ids currently collapsed
 // one selection drives every view: {kind:'zone'|'vertex'|'edge', ...}
@@ -132,21 +132,23 @@ const ICON_RULES = [
 ];
 
 function buildCyStyle(theme) {
-  const mario = theme === 'mario';
-  const stroke = mario ? '#173568' : '#aebdd3';
-  const c = mario ? {
-    nodeBg: '#fff5d8', nodeBorder: '#173568', label: '#173568',
-    zoneBg: '#fbd000', zoneBorder: '#7c2d05', zoneLabel: '#5c2d05',
-    groupBorder: '#2a4a9e', groupLabel: '#1a2a6a',
-    edge: '#888', air: '#e8eef8', water: '#43b047', crossover: '#e52521',
-    sel: '#e52521', linked: '#fbd000',
-    font: "'Press Start 2P', monospace", fontSize: 5.5
+  const light = theme === 'light';
+  const stroke = light ? '#45556c' : '#aebdd3';
+  const c = light ? {
+    nodeBg: '#ffffff', nodeBorder: '#9aa8bb', label: '#5d6b7e',
+    zoneBg: '#f0cb6e', zoneBorder: '#b08628', zoneLabel: '#7a5d1d',
+    groupBorder: '#d3dae3', groupLabel: '#8a97a8',
+    edge: '#b6c0cd', air: '#3a9367', water: '#3d72c4', crossover: '#c05050',
+    sel: '#d97c00', linked: '#d97c00',
+    parentBg: '#000000', parentOpacity: 0.03,
+    font: 'IBM Plex Mono, monospace', fontSize: 9
   } : {
     nodeBg: '#1a2230', nodeBorder: '#4d6076', label: '#7c8aa0',
     zoneBg: '#5a4a2e', zoneBorder: '#8a6a35', zoneLabel: '#a99263',
     groupBorder: '#2b3546', groupLabel: '#56647c',
     edge: '#39455a', air: '#3a7a5c', water: '#3d6390', crossover: '#7c4a4a',
     sel: '#ffc66b', linked: '#ffc66b',
+    parentBg: '#ffffff', parentOpacity: 0.02,
     font: 'IBM Plex Mono, monospace', fontSize: 9
   };
   const style = [
@@ -165,7 +167,7 @@ function buildCyStyle(theme) {
   style.push(
     { selector: 'node[?isZone]', style: {
         shape: 'round-rectangle', 'background-color': c.zoneBg, 'border-color': c.zoneBorder,
-        'border-width': mario ? 2 : 1, width: 34, height: 24, color: c.zoneLabel,
+        'border-width': 1, width: 34, height: 24, color: c.zoneLabel,
         'background-image': null
     }},
     { selector: 'node[type^="CONNECTOR"], node[type^="AIRLOOPHVAC:ZONESPLITTER"], node[type^="AIRLOOPHVAC:ZONEMIXER"]', style: {
@@ -181,7 +183,7 @@ function buildCyStyle(theme) {
     { selector: 'node[unitType="dist"]', style: { 'background-image': iconUri('dist', stroke) } },
     { selector: 'node[unitType="zoneeq"]', style: { 'background-image': iconUri('zoneeq', stroke) } },
     { selector: ':parent', style: {
-        'background-color': '#ffffff', 'background-opacity': mario ? 0.12 : 0.02,
+        'background-color': c.parentBg, 'background-opacity': c.parentOpacity,
         'border-color': c.groupBorder, 'border-width': 1, 'background-image': null,
         label: 'data(label)', 'font-size': c.fontSize + 1, 'font-weight': 'bold',
         'font-family': c.font,
@@ -190,18 +192,18 @@ function buildCyStyle(theme) {
     { selector: 'edge', style: {
         width: 1.4, 'line-color': c.edge,
         'target-arrow-shape': 'none', 'curve-style': 'bezier',
-        opacity: 0.75, 'line-cap': mario ? 'round' : 'butt'
+        opacity: 0.75
     }},
     { selector: 'edge[fluid="Air"]', style: { 'line-color': c.air } },
     { selector: 'edge[fluid="Water"]', style: { 'line-color': c.water } },
     { selector: 'edge[kind="crossover"]', style: { 'line-style': 'dashed', 'line-color': c.crossover } },
     { selector: '.faded', style: { opacity: 0.08, 'text-opacity': 0.08 } },
     { selector: '.linked', style: {
-        'underlay-color': c.linked, 'underlay-opacity': mario ? 0.4 : 0.18, 'underlay-padding': 5, 'z-index': 8
+        'underlay-color': c.linked, 'underlay-opacity': 0.18, 'underlay-padding': 5, 'z-index': 8
     }},
     { selector: 'node.linked', style: { 'border-color': c.linked } },
     { selector: '.sel', style: {
-        'underlay-color': c.sel, 'underlay-opacity': mario ? 0.55 : 0.34, 'underlay-padding': 7, 'z-index': 9
+        'underlay-color': c.sel, 'underlay-opacity': 0.34, 'underlay-padding': 7, 'z-index': 9
     }},
     { selector: 'node.sel', style: { 'border-width': 2, 'border-color': c.sel } },
     { selector: 'edge.sel', style: { 'line-color': c.sel, opacity: 1 } },
@@ -310,7 +312,7 @@ function renderSystemsTree() {
       </div>
       <div class="sysList" data-type="${type}" style="display:${open ? 'block' : 'none'}">` +
       list.map(u => `
-        <div class="sysRow${selection && selection.kind === 'unit' && selection.unitId === u.id ? ' selected' : ''}" data-unit="${esc(u.id)}">
+        <div class="sysRow${selectedUnitIdForTree() === u.id ? ' selected' : ''}" data-unit="${esc(u.id)}">
           <input type="checkbox" class="sysBox" data-unit="${esc(u.id)}" ${collapsedSet.has(u.id) ? '' : 'checked'}>
           <span class="sysLabel" data-unit="${esc(u.id)}" title="${esc(u.label)} — click to select">${esc(u.label)}</span>
           <span class="sysCount">${u.members.length}</span>
@@ -352,8 +354,10 @@ function renderSystemsTree() {
     });
   }
   for (const label of root.querySelectorAll('.sysLabel')) {
-    label.addEventListener('click', () => selectUnit(label.dataset.unit));
+    label.addEventListener('click', () => selectUnit(label.dataset.unit, { jump: true }));
   }
+  const selectedRow = root.querySelector('.sysRow.selected');
+  if (selectedRow) selectedRow.scrollIntoView({ block: 'nearest' });
 }
 
 function onGraphNodeDblTap(n) {
@@ -407,6 +411,7 @@ function loadPlayback(name, text) {
   buildMonthRuler();
   updateLegend();
   updateDatasetChip();
+  updateMiniChart();
   updateTime();
 }
 
@@ -527,6 +532,16 @@ function systemColorForEdge(edge) {
   return (loopFunctionColors && loopFunctionColors[loop]) || SYSTEM_PALETTE.other;
 }
 
+// display unit system: SI (°C, kg/s) or IP (°F, lb/min) — display-layer
+// only, all internal state stays SI
+let displayUnits = 'si';
+const tempUnit = () => (displayUnits === 'ip' ? '°F' : '°C');
+const flowUnit = () => (displayUnits === 'ip' ? 'lb/min' : 'kg/s');
+const dispTemp = c => (displayUnits === 'ip' ? c * 9 / 5 + 32 : c);
+const siTemp = t => (displayUnits === 'ip' ? (t - 32) * 5 / 9 : t);
+const dispFlow = f => (displayUnits === 'ip' ? f * 132.277 : f);
+const siFlow = f => (displayUnits === 'ip' ? f / 132.277 : f);
+
 // user-adjustable scale domains (null = auto from playback stats) + ramp
 const scale = { tempMin: null, tempMax: null, flowMax: null, ramp: 'thermal' };
 const RAMPS = {
@@ -586,15 +601,21 @@ function updateLegend() {
     `linear-gradient(to right, ${(RAMPS[scale.ramp] || RAMPS.thermal).join(',')})`;
   const eff = effectiveScale();
   const set = (id, v) => { if (document.activeElement !== $(id)) $(id).value = v == null ? '' : String(Math.round(v * 10) / 10); };
-  set('scaleTempMin', eff.tempMin);
-  set('scaleTempMax', eff.tempMax);
-  set('scaleFlowMax', eff.flowMax);
+  set('scaleTempMin', eff.tempMin == null ? null : dispTemp(eff.tempMin));
+  set('scaleTempMax', eff.tempMax == null ? null : dispTemp(eff.tempMax));
+  set('scaleFlowMax', eff.flowMax == null ? null : dispFlow(eff.flowMax));
+  $('legendTempUnitLbl').textContent = tempUnit();
+  $('legendFlowUnitLbl').textContent = flowUnit();
 }
 
-for (const [id, key] of [['scaleTempMin', 'tempMin'], ['scaleTempMax', 'tempMax'], ['scaleFlowMax', 'flowMax']]) {
+for (const [id, key, toSi] of [
+  ['scaleTempMin', 'tempMin', siTemp],
+  ['scaleTempMax', 'tempMax', siTemp],
+  ['scaleFlowMax', 'flowMax', siFlow]
+]) {
   $(id).addEventListener('change', () => {
     const v = parseFloat($(id).value);
-    scale[key] = Number.isFinite(v) ? v : null; // blank resets to auto
+    scale[key] = Number.isFinite(v) ? toSi(v) : null; // blank resets to auto
     updateLegend();
     if (playback) updateTime();
   });
@@ -620,6 +641,7 @@ function updateTime() {
   }
   applyPlaybackToGraph();
   updateZoneHighlights();
+  drawMiniChart();
 }
 
 function readoutValueText() {
@@ -630,14 +652,15 @@ function readoutValueText() {
   if (selection.kind === 'zone') {
     const series = zoneSeriesFor(selection.zoneName);
     const v = series && series.temperature && series.temperature.values[selectedTimeIndex];
-    return Number.isFinite(v) ? `${selection.zoneName}  ${v.toFixed(1)} °C` : selection.zoneName;
+    return Number.isFinite(v) ? `${selection.zoneName}  ${dispTemp(v).toFixed(1)} ${tempUnit()}` : selection.zoneName;
   }
   if (selection.kind === 'edge' && playback.nodes) {
     const node = playback.nodes[selection.nodeName];
     const slot = currentMetric === 'temperature' ? 'temperature' : 'massFlow';
     const v = node && node[slot] && node[slot].values[selectedTimeIndex];
-    const unit = slot === 'temperature' ? '°C' : 'kg/s';
-    return Number.isFinite(v) ? `${selection.nodeName}  ${v.toFixed(1)} ${unit}` : selection.nodeName;
+    const conv = slot === 'temperature' ? dispTemp : dispFlow;
+    const unit = slot === 'temperature' ? tempUnit() : flowUnit();
+    return Number.isFinite(v) ? `${selection.nodeName}  ${conv(v).toFixed(1)} ${unit}` : selection.nodeName;
   }
   return selection.title || '';
 }
@@ -688,7 +711,6 @@ function applyPlaybackToGraph() {
   if (!cy || !playback || !playback.nodes) return;
   const s = playbackStats || {};
   const eff = effectiveScale();
-  const mario = currentTheme === 'mario';
   cy.batch(() => {
     cy.edges().forEach(edge => {
       const nodeName = String(edge.data('label') || '').split(' ⇒ ')[0];
@@ -698,15 +720,12 @@ function applyPlaybackToGraph() {
       const peak = s.nodePeaks ? s.nodePeaks.get(nodeName) : null;
       if (Number.isFinite(temp) || Number.isFinite(flow)) {
         const width = peak > 0 && eff.flowMax > 0
-          ? 1.4 + Math.sqrt(Math.min(1, peak / eff.flowMax)) * (mario ? 9 : 7)
+          ? 1.4 + Math.sqrt(Math.min(1, peak / eff.flowMax)) * 7
           : 2;
         const util = peak > 0 && Number.isFinite(flow) ? Math.min(1, flow / peak) : null;
         const opacity = util == null ? 0.85 : 0.22 + 0.73 * Math.sqrt(util);
         let color;
-        if (mario) {
-          color = edge.data('fluid') === 'Water' ? '#43b047'
-            : edge.data('fluid') === 'Air' ? '#e8eef8' : '#9a6a30';
-        } else if (currentMetric === 'system') {
+        if (currentMetric === 'system') {
           color = systemColorForEdge(edge);
         } else {
           color = currentMetric === 'temperature'
@@ -767,6 +786,8 @@ function clearSelection() {
     '<li>click a zone surface in 3D</li>' +
     '<li>drag to orbit · scroll to zoom</li>' +
     '<li>space = play / pause</li></ul>';
+  renderSystemsTree();
+  updateMiniChart();
   if (playback) updateTime();
 }
 
@@ -805,6 +826,8 @@ function selectZone(zoneName) {
   }
   updateZoneHighlights();
   renderZoneInspector(selection.zoneName, zv);
+  renderSystemsTree();
+  updateMiniChart();
   if (playback) updateTime();
 }
 
@@ -829,6 +852,8 @@ function selectVertex(vertexId) {
   }
   updateZoneHighlights(); // lights v.zone in 3D via selection.zoneName
   renderVertexInspector(v);
+  renderSystemsTree();
+  updateMiniChart();
   if (playback) updateTime();
 }
 
@@ -841,7 +866,142 @@ function selectEdge(edge) {
   edge.connectedNodes().addClass('linked');
   updateZoneHighlights();
   renderEdgeInspector(d, names);
+  renderSystemsTree();
+  updateMiniChart();
   if (playback) updateTime();
+}
+
+/* ── mini chart: sparklines for the selection during playback ─── */
+// Each related series normalizes to its own range (mixed units), drawn
+// once into an offscreen cache; per-tick work is one blit + the time
+// marker, so it stays cheap at 30 steps/s.
+const MINI_COLORS = ['#e0a33b', '#4f9dd9', '#52b788', '#d96a6a'];
+let miniSeries = [];
+let miniCache = null;
+let miniHidden = false;
+let miniKey = null;
+
+function computeMiniSeries() {
+  if (!playback || !selection) return [];
+  const out = [];
+  const addNode = (name, slot = 'temperature') => {
+    const node = playback.nodes && playback.nodes[name];
+    const series = node && node[slot];
+    const key = `${name}|${slot}`;
+    if (series && out.length < 4 && !out.some(s => s.key === key)) {
+      out.push({ key, label: `${name} · ${slot === 'massFlow' ? flowUnit() : tempUnit()}`, values: series.values });
+    }
+  };
+  if (selection.kind === 'zone') {
+    const series = zoneSeriesFor(selection.zoneName);
+    if (series && series.temperature) {
+      out.push({ key: `zone|${selection.zoneName}`, label: `${selection.zoneName} · zone ${tempUnit()}`, values: series.temperature.values });
+    }
+    const zv = graphZoneVertexByName(selection.zoneName);
+    if (zv) for (const p of zv.v.pairs) if (p.inlet) addNode(p.inlet);
+  } else if (selection.kind === 'edge') {
+    addNode(selection.nodeName, 'temperature');
+    addNode(selection.nodeName, 'massFlow');
+  } else if (selection.kind === 'vertex') {
+    const v = graph && graph.vertices[selection.vertexId];
+    for (const p of (v ? v.pairs : [])) {
+      if (p.inlet) addNode(p.inlet);
+      if (p.outlet) addNode(p.outlet);
+    }
+  } else if (selection.kind === 'unit') {
+    const u = units && units.units[selection.unitId];
+    if (u) {
+      const names = new Set();
+      for (const id of u.members) {
+        const v = graph.vertices[id];
+        for (const p of (v ? v.pairs : [])) {
+          if (p.inlet) names.add(p.inlet);
+          if (p.outlet) names.add(p.outlet);
+        }
+      }
+      // heaviest-flow nodes are the unit's main supply/return runs
+      const peaks = (playbackStats && playbackStats.nodePeaks) || new Map();
+      const ranked = [...names]
+        .filter(n => playback.nodes && playback.nodes[n])
+        .sort((a, b) => (peaks.get(b) || 0) - (peaks.get(a) || 0));
+      for (const n of ranked.slice(0, 4)) addNode(n);
+    }
+  }
+  return out.slice(0, 4);
+}
+
+function updateMiniChart() {
+  const key = selection
+    ? `${selection.kind}|${selection.unitId || selection.vertexId || selection.nodeName || selection.zoneName || ''}`
+    : null;
+  if (key !== miniKey) { miniHidden = false; miniKey = key; }
+  miniSeries = computeMiniSeries();
+  const show = !miniHidden && miniSeries.length > 0;
+  $('miniChart').style.display = show ? 'block' : 'none';
+  if (!show) return;
+  $('miniChartTitle').textContent = selection.title || selection.zoneName || '';
+  $('miniLegend').innerHTML = miniSeries
+    .map((s, i) => `<span><i style="background:${MINI_COLORS[i]}"></i>${esc(s.label)}</span>`)
+    .join('');
+  renderMiniCache();
+  drawMiniChart();
+}
+
+function renderMiniCache() {
+  const canvas = $('miniChartCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.floor(rect.width * dpr));
+  const h = Math.max(1, Math.floor(rect.height * dpr));
+  canvas.width = w;
+  canvas.height = h;
+  miniCache = document.createElement('canvas');
+  miniCache.width = w;
+  miniCache.height = h;
+  const ctx = miniCache.getContext('2d');
+  miniSeries.forEach((series, i) => {
+    let min = Infinity, max = -Infinity;
+    for (const v of series.values) {
+      if (!Number.isFinite(v)) continue;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    if (!(max > min)) { min -= 1; max += 1; }
+    const n = series.values.length;
+    const stride = Math.max(1, Math.floor(n / w)); // ~1 sample per px
+    ctx.beginPath();
+    let started = false;
+    for (let j = 0; j < n; j += stride) {
+      const v = series.values[j];
+      if (!Number.isFinite(v)) continue;
+      const x = (j / (n - 1)) * w;
+      const y = h - 3 - ((v - min) / (max - min)) * (h - 6);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = MINI_COLORS[i];
+    ctx.lineWidth = 1.2 * dpr;
+    ctx.globalAlpha = 0.9;
+    ctx.stroke();
+  });
+}
+
+function drawMiniChart() {
+  if (!miniCache || $('miniChart').style.display === 'none') return;
+  const canvas = $('miniChartCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(miniCache, 0, 0);
+  const n = ((playback && playback.times) || []).length;
+  if (n > 1) {
+    const x = (selectedTimeIndex / (n - 1)) * canvas.width;
+    ctx.strokeStyle = currentTheme === 'light' ? '#d97c00' : '#ffc66b';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  }
 }
 
 function onGraphNodeTap(n) {
@@ -851,33 +1011,49 @@ function onGraphNodeTap(n) {
   selectVertex(d.id);
 }
 
-function selectUnit(unitId) {
+function selectUnit(unitId, opts = {}) {
   const u = units && units.units[unitId];
   if (!u) return clearSelection();
   selection = { kind: 'unit', unitId, title: u.label, zoneName: u.type === 'zoneeq' ? u.label.split(' · ')[0] : null };
   cy.elements().removeClass('sel linked');
   const node = cy.getElementById(unitId);
+  let focus;
   if (node.nonempty()) {
     // collapsed: the proxy is the selection
     node.addClass('sel');
     const edges = node.connectedEdges();
     edges.addClass('linked');
     edges.connectedNodes().difference(node).addClass('linked');
+    focus = node;
   } else {
     // expanded: highlight the member family in place
     let members = cy.collection();
     for (const id of u.members) members = members.union(cy.getElementById(id));
     members.addClass('sel');
     members.connectedEdges().addClass('linked');
+    focus = members;
+  }
+  if (opts.jump && focus && focus.nonempty()) {
+    cy.animate({ fit: { eles: focus.closedNeighborhood(), padding: 90 }, duration: 350, easing: 'ease-in-out' });
   }
   updateZoneHighlights();
   renderUnitInspector(u);
   renderSystemsTree();
+  updateMiniChart();
   if (playback) updateTime();
 }
 
+// which tree row matches the selection (direct unit pick, or the unit
+// that owns a selected component)
+function selectedUnitIdForTree() {
+  if (!selection || !units) return null;
+  if (selection.kind === 'unit') return selection.unitId;
+  if (selection.kind === 'vertex') return units.unitOf[selection.vertexId] || null;
+  return null;
+}
+
 function renderUnitInspector(u) {
-  const TYPE_LABEL = { ahu: 'AIR HANDLER (AIR LOOP)', plant: 'PLANT LOOP SIDE', dist: 'AIR DISTRIBUTION', zoneeq: 'ZONE EQUIPMENT' };
+  const TYPE_LABEL = { ahu: 'AIR HANDLER (AIR LOOP)', plant: 'PLANT LOOP', dist: 'AIR DISTRIBUTION', zoneeq: 'ZONE EQUIPMENT' };
   let html = `<h2>${esc(u.label)}</h2><span class="kindChip">${TYPE_LABEL[u.type] || 'UNIT'}</span>`;
   html += kv([['members', u.members.length], ['collapsed', collapsedSet.has(u.id) ? 'yes — double-click to expand' : 'no']]);
   html += '<h3>members</h3>';
@@ -1153,7 +1329,7 @@ function renderZones3d() {
 function initThree() {
   const root = $('zone3d');
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(currentTheme === 'mario' ? 0x5c94fc : 0x0e1219);
+  scene.background = new THREE.Color(currentTheme === 'light' ? 0xeef1f5 : 0x0e1219);
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100000);
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -1375,14 +1551,29 @@ $('expandAll').addEventListener('click', () => {
 $('fit').addEventListener('click', () => { if (cy) cy.fit(undefined, 30); });
 $('resetCam').addEventListener('click', fitThreeCamera);
 
+for (const btn of document.querySelectorAll('#unitToggle button')) {
+  btn.addEventListener('click', () => {
+    displayUnits = btn.dataset.units;
+    for (const b of document.querySelectorAll('#unitToggle button')) b.classList.toggle('on', b === btn);
+    updateLegend();
+    updateMiniChart();
+    if (playback) updateTime();
+  });
+}
+
+$('miniChartClose').addEventListener('click', () => {
+  miniHidden = true;
+  $('miniChart').style.display = 'none';
+});
+
 for (const btn of document.querySelectorAll('#themeToggle button')) {
   btn.addEventListener('click', () => {
     currentTheme = btn.dataset.theme;
     for (const b of document.querySelectorAll('#themeToggle button')) b.classList.toggle('on', b === btn);
-    document.body.classList.toggle('mario', currentTheme === 'mario');
+    document.body.classList.toggle('light', currentTheme === 'light');
     if (cy) { cy.style(buildCyStyle(currentTheme)); applyPlaybackToGraph(); }
     if (threeView) {
-      threeView.scene.background = new THREE.Color(currentTheme === 'mario' ? 0x5c94fc : 0x0e1219);
+      threeView.scene.background = new THREE.Color(currentTheme === 'light' ? 0xeef1f5 : 0x0e1219);
       updateZoneHighlights();
     }
   });
@@ -1469,7 +1660,7 @@ clearSelection();
 /* ── demo datasets & auto-load ───────────────────────────────── */
 // Over http(s) a demo set loads by default (prototyping). Hash params:
 // #dataset=hospital, #bnd=/#geometry=/#data= (explicit URLs win),
-// #t= / #play=1, #sel=<zone>, #theme=mario, #layout=units|organic|system,
+// #t= / #play=1, #sel=<zone>, #theme=light, #layout=units|organic|system,
 // #collapse=all.
 const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
 const isHttp = /^https?:$/.test(location.protocol);
@@ -1513,7 +1704,7 @@ $('datasetPick').addEventListener('change', () => {
 });
 
 const startTheme = hashParams.get('theme');
-if (startTheme === 'mario') document.querySelector('#themeToggle button[data-theme="mario"]').click();
+if (startTheme === 'light') document.querySelector('#themeToggle button[data-theme="light"]').click();
 const startLayout = hashParams.get('layout');
 if (startLayout && [...$('layoutMode').options].some(o => o.value === startLayout)) {
   $('layoutMode').value = startLayout;

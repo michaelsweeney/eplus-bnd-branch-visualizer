@@ -33,16 +33,13 @@ export function assignUnits(model, graph) {
   for (const c of model.connectors)
     connSide[`CONNECTOR:${c.type.toUpperCase()}|${c.name}`] = c;
 
-  // id is loop+side only: branch records say "Condenser Demand" where
-  // connector records say kind=Condenser side=Demand — same unit
+  // one unit per loop, keyed by loop name only: supply and demand sides
+  // collapse together (branch records say "Condenser Demand" where
+  // connector records say kind=Condenser side=Demand — and a split-side
+  // tree reads as duplicates anyway)
   const loopUnit = (loopName, loopType) => {
     if (loopType === 'Air') return ensureUnit(`unit|AHU|${loopName}`, 'ahu', loopName);
-    const side = (loopType.split(' ')[1] || 'loop').toLowerCase();
-    return ensureUnit(
-      `unit|SIDE|${loopName}|${side}`,
-      'plant',
-      `${loopName} · ${side}`
-    );
+    return ensureUnit(`unit|LOOP|${loopName}`, 'plant', loopName);
   };
 
   const baseUnit = v => {
