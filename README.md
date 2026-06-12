@@ -57,6 +57,39 @@ Large Office VAV / Hospital / Small Office).
   `#theme=light`, `#layout=system|organic|units`, `#collapse=all`
   restore a shareable app state.
 
+## Hosted demo build
+
+`npm run build:demo` produces a deployable `dist/`: the app bundle plus
+decimated copies of the demo datasets (3-hourly for the offices,
+4-hourly for the hospital, values rounded to 3 decimals — 90–214 MB
+playback JSONs become 3–18 MB, under Cloudflare Pages' 25 MB file cap).
+Deploy with `npx wrangler pages deploy dist --project-name <name>`.
+The plain `npm run build` keeps full-resolution data for local use.
+
+## Bring your own model
+
+Drag any of these onto the running app — each layer degrades
+gracefully:
+
+- **`.bnd` alone** → the full topology graph. Every EnergyPlus run
+  writes `eplusout.bnd`; any version, no preparation.
+- **+ epJSON** → 3D zone geometry (`ConvertInputFormat --epJSON` turns
+  an IDF into one).
+- **+ playback JSON** → the temporal layer. This is the only part that
+  needs the model prepared before the run: two output variables and
+  SQLite output —
+
+  ```text
+  Output:Variable, *, System Node Temperature, Hourly;
+  Output:Variable, *, System Node Mass Flow Rate, Hourly;
+  Output:SQLite, SimpleAndTabular;
+  ```
+
+  `npm run prep` injects these for you (and `--run` executes a
+  version-matched EnergyPlus); `npm run export:playback` then converts
+  `eplusout.sql` into the playback JSON. Oversized result? Shrink it
+  with `node scripts/decimate-playback.mjs`.
+
 ## End-to-end demo (validated 2026-06-12)
 
 The full chain — IDF in, three synchronized views out — against a real

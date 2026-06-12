@@ -11,7 +11,8 @@
     "test": "node --test",
     "collect:samples": "node scripts/collect-samples.mjs",
     "prep": "node scripts/prep-epjson.mjs",
-    "export:playback": "node scripts/export-playback.mjs"
+    "export:playback": "node scripts/export-playback.mjs",
+    "build:demo": "node scripts/build-demo-site.mjs"
   },
   "license": "MIT",
   "devDependencies": {

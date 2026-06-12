@@ -850,7 +850,8 @@ function clearSelection() {
     '<li>right-click for group / hide actions</li>' +
     '<li>click a zone surface in 3D</li>' +
     '<li>drag to orbit · scroll to zoom</li>' +
-    '<li>space = play / pause</li></ul>';
+    '<li>space = play / pause</li>' +
+    '<li>drop your own .bnd / epJSON / playback JSON to load a model</li></ul>';
   renderSystemsTree();
   updateMiniChart();
   if (playback) updateTime();
