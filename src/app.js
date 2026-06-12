@@ -28,6 +28,7 @@ let loopFunctionColors = null; // loopName -> hex, from classifyLoops()
 let currentTheme = 'dark';
 let units = null;             // { units, unitOf } from assignUnits
 let collapsedSet = new Set(); // unit ids currently collapsed
+let hiddenSet = new Set();    // unit ids currently not displayed at all
 // one selection drives every view: {kind:'zone'|'vertex'|'edge', ...}
 let selection = null;
 
@@ -51,6 +52,7 @@ function loadText(name, text) {
   graph = buildGraph(model);
   units = assignUnits(model, graph);
   collapsedSet = defaultCollapsedSet();
+  hiddenSet = new Set();
   for (const el of graph.elements)
     if (!el.data.source) el.data.origParent = el.data.parent || null;
   if (graph.elements.length === 0) {
@@ -89,6 +91,7 @@ function createCy(elements) {
   cy.on('tap', 'edge', e => onGraphEdgeTap(e.target));
   cy.on('tap', e => { if (e.target === cy) clearSelection(); });
   cy.on('dbltap', 'node', e => onGraphNodeDblTap(e.target));
+  cy.on('cxttap', e => onGraphContextMenu(e));
 }
 
 /* ── component icons ─────────────────────────────────────────── */
@@ -218,16 +221,20 @@ function buildCyStyle(theme) {
 // them (deduped per node name). Avoids incremental remove/restore
 // ordering bugs entirely.
 function buildDisplayElements() {
-  if (!units || collapsedSet.size === 0) return structuredClone(graph.elements);
+  if (!units || (collapsedSet.size === 0 && hiddenSet.size === 0))
+    return structuredClone(graph.elements);
+  const unitIdOf = id => units.unitOf[id] || null;
+  const isHidden = id => { const u = unitIdOf(id); return !!(u && hiddenSet.has(u)); };
   const proxyOf = id => {
-    const u = units.unitOf[id];
-    return u && collapsedSet.has(u) ? u : null;
+    const u = unitIdOf(id);
+    return u && !hiddenSet.has(u) && collapsedSet.has(u) ? u : null;
   };
   const els = [];
   const keptNodeIds = new Set();
   const addedProxies = new Set();
   for (const el of graph.elements) {
     if (el.data.source || el.data.isGroup) continue;
+    if (isHidden(el.data.id)) continue;
     const proxy = proxyOf(el.data.id);
     if (!proxy) {
       keptNodeIds.add(el.data.id);
@@ -255,6 +262,7 @@ function buildDisplayElements() {
   const seenEdges = new Set();
   for (const el of graph.elements) {
     if (!el.data.source) continue;
+    if (isHidden(el.data.source) || isHidden(el.data.target)) continue;
     const s = proxyOf(el.data.source) || el.data.source;
     const t = proxyOf(el.data.target) || el.data.target;
     if (s === t || !presentIds.has(s) || !presentIds.has(t)) continue;
@@ -266,14 +274,23 @@ function buildDisplayElements() {
   return els;
 }
 
-function setCollapsed(nextSet) {
+function rebuildDisplay() {
   if (!cy || !units) return;
-  collapsedSet = nextSet;
   clearSelection();
   createCy(buildDisplayElements());
   applyLayout();
   applyPlaybackToGraph();
   renderSystemsTree();
+}
+
+function setCollapsed(nextSet) {
+  collapsedSet = nextSet;
+  rebuildDisplay();
+}
+
+function setHidden(nextSet) {
+  hiddenSet = nextSet;
+  rebuildDisplay();
 }
 
 // Default: zone equipment + distribution collapsed (repetitive per-zone
@@ -306,14 +323,16 @@ function renderSystemsTree() {
     html += `<div class="sysSection">
       <div class="sysHead">
         <button class="sysCaret" data-type="${type}">${open ? '▾' : '▸'}</button>
-        <input type="checkbox" class="sysAll" data-type="${type}">
+        <input type="checkbox" class="sysAll" data-type="${type}" title="expand / group all">
+        <input type="checkbox" class="sysAllVis" data-type="${type}" title="show / hide all">
         <span class="sysTitle">${title}</span>
         <span class="sysCount">${list.length}</span>
       </div>
       <div class="sysList" data-type="${type}" style="display:${open ? 'block' : 'none'}">` +
       list.map(u => `
-        <div class="sysRow${selectedUnitIdForTree() === u.id ? ' selected' : ''}" data-unit="${esc(u.id)}">
-          <input type="checkbox" class="sysBox" data-unit="${esc(u.id)}" ${collapsedSet.has(u.id) ? '' : 'checked'}>
+        <div class="sysRow${selectedUnitIdForTree() === u.id ? ' selected' : ''}${hiddenSet.has(u.id) ? ' off' : ''}" data-unit="${esc(u.id)}">
+          <input type="checkbox" class="sysBox" data-unit="${esc(u.id)}" title="expanded / grouped" ${collapsedSet.has(u.id) ? '' : 'checked'}>
+          <input type="checkbox" class="sysVis" data-unit="${esc(u.id)}" title="shown / hidden" ${hiddenSet.has(u.id) ? '' : 'checked'}>
           <span class="sysLabel" data-unit="${esc(u.id)}" title="${esc(u.label)} — click to select">${esc(u.label)}</span>
           <span class="sysCount">${u.members.length}</span>
         </div>`).join('') +
@@ -329,6 +348,14 @@ function renderSystemsTree() {
       setCollapsed(next);
     });
   }
+  for (const box of root.querySelectorAll('.sysVis')) {
+    box.addEventListener('change', () => {
+      const next = new Set(hiddenSet);
+      if (box.checked) next.delete(box.dataset.unit);
+      else next.add(box.dataset.unit);
+      setHidden(next);
+    });
+  }
   for (const all of root.querySelectorAll('.sysAll')) {
     const type = all.dataset.type;
     const ids = Object.values(units.units).filter(u => u.type === type).map(u => u.id);
@@ -342,6 +369,21 @@ function renderSystemsTree() {
         else next.add(id);
       }
       setCollapsed(next);
+    });
+  }
+  for (const all of root.querySelectorAll('.sysAllVis')) {
+    const type = all.dataset.type;
+    const ids = Object.values(units.units).filter(u => u.type === type).map(u => u.id);
+    const shown = ids.filter(id => !hiddenSet.has(id)).length;
+    all.checked = shown === ids.length;
+    all.indeterminate = shown > 0 && shown < ids.length;
+    all.addEventListener('change', () => {
+      const next = new Set(hiddenSet);
+      for (const id of ids) {
+        if (all.checked) next.delete(id);
+        else next.add(id);
+      }
+      setHidden(next);
     });
   }
   for (const caret of root.querySelectorAll('.sysCaret')) {
@@ -783,6 +825,7 @@ function clearSelection() {
     '<span class="empty">Nothing selected.</span>' +
     '<ul class="hintList">' +
     '<li>click a component or zone in the graph</li>' +
+    '<li>right-click for group / hide actions</li>' +
     '<li>click a zone surface in 3D</li>' +
     '<li>drag to orbit · scroll to zoom</li>' +
     '<li>space = play / pause</li></ul>';
@@ -1241,6 +1284,31 @@ function nodeBaseSize(node) {
   return { w: 26, h: 26 };
 }
 
+// Which loop compound a display node belongs in (system layout boxes).
+// Follows the LAYOUT's band assignment, not the ground-truth group chain:
+// dual-membership components (a cooling coil sits on both an air branch
+// and a CHW demand branch) are drawn in one band, and the box must wrap
+// where they are drawn or it stretches across other systems. Zones stay
+// unboxed (building objects, not system internals); plant LOOP proxies
+// stand for the whole loop and get no box either.
+function displayLoopParent(n, bandOf) {
+  const d = n.data();
+  if (d.isZone) return null;
+  if (d.isUnit) {
+    const parts = String(d.id).split('|');
+    if (parts[1] === 'AHU' || parts[1] === 'DIST') return `loop|${parts[2]}`;
+    if (parts[1] !== 'ZEQ') return null;
+    const u = units && units.units[d.id];
+    for (const m of (u ? u.members : [])) {
+      const b = bandOf[m];
+      if (b && b !== 'misc' && graph.loopKind[b]) return `loop|${b}`;
+    }
+    return null;
+  }
+  const b = bandOf[d.id];
+  return b && b !== 'misc' && graph.loopKind[b] ? `loop|${b}` : null;
+}
+
 function applyEdgeRouting() {
   if (!cy || !graph) return;
   const { lanes } = assignLoopLanes(graph.loopKind || {});
@@ -1314,8 +1382,9 @@ function applyLayout() {
     applyEdgeRouting();
     cy.fit(undefined, 40);
   } else if (mode === 'system') {
-    // bands/columns already encode the grouping, so compounds are
-    // redundant boxes that span bands — flatten them for this mode
+    // bands/columns already encode the grouping; container compounds are
+    // flattened, but loop compounds stay visible as labeled boundary
+    // rectangles around each system (one box per loop, both sides)
     const sys = computeSystemLayout(model, graph);
     const posFor = id => {
       if (sys.positions[id]) return sys.positions[id];
@@ -1331,8 +1400,14 @@ function applyLayout() {
       return undefined;
     };
     cy.batch(() => {
-      cy.nodes(':child').move({ parent: null });
-      cy.nodes('[?isGroup], [?isContainer]').style('display', 'none');
+      cy.nodes('[?isGroup]').forEach(g =>
+        g.style('display', g.id().startsWith('loop|') ? 'element' : 'none'));
+      cy.nodes().not('[?isGroup]').forEach(n => {
+        const want = displayLoopParent(n, sys.bandOf);
+        const target = want && cy.getElementById(want).nonempty() ? want : null;
+        if ((n.data('parent') || null) !== target) n.move({ parent: target });
+      });
+      cy.nodes('[?isContainer]').style('display', 'none');
     });
     cy.style()
       .selector('edge').style({ 'curve-style': 'taxi', 'taxi-direction': 'rightward',
@@ -1346,8 +1421,10 @@ function applyLayout() {
     cy.batch(() => {
       cy.nodes('[?isGroup], [?isContainer]').style('display', 'element');
       cy.nodes().forEach(n => {
-        const p = n.data('origParent');
-        if (p && n.data('parent') !== p && cy.getElementById(p).nonempty()) n.move({ parent: p });
+        if (n.data('isGroup')) return;
+        const p = n.data('origParent') || null; // proxies have none — unparent
+        if ((n.data('parent') || null) === p) return;
+        if (!p || cy.getElementById(p).nonempty()) n.move({ parent: p });
       });
     });
     cy.style().selector('edge').style({ 'curve-style': 'bezier' }).update();
@@ -1632,13 +1709,98 @@ $('layoutMode').addEventListener('change', () => {
     applyLayout();
   }
 });
-$('collapseAll').addEventListener('click', () => { if (units) setCollapsed(new Set(Object.keys(units.units))); });
-$('expandAll').addEventListener('click', () => {
-  if ($('layoutMode').value === 'units') $('layoutMode').value = 'system';
-  setCollapsed(new Set());
-});
 $('fit').addEventListener('click', () => { if (cy) cy.fit(undefined, 30); });
 $('resetCam').addEventListener('click', fitThreeCamera);
+
+/* ── graph context menu ──────────────────────────────────────── */
+// Right-click actions: per-object collapse/expand/hide moved here from
+// the toolbar so the chrome stays thin.
+function openCtxMenu(x, y, entries) {
+  const menu = $('ctxMenu');
+  menu.innerHTML = '';
+  for (const en of entries) {
+    if (en === '—') { menu.appendChild(Object.assign(document.createElement('div'), { className: 'ctxSep' })); continue; }
+    const div = document.createElement('div');
+    if (en.head) {
+      div.className = 'ctxHead';
+      div.textContent = en.head;
+    } else {
+      div.className = 'ctxItem';
+      div.textContent = en.label;
+      div.addEventListener('click', () => { closeCtxMenu(); en.run(); });
+    }
+    menu.appendChild(div);
+  }
+  menu.classList.add('show');
+  const r = menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(x, window.innerWidth - r.width - 6)}px`;
+  menu.style.top = `${Math.min(y, window.innerHeight - r.height - 6)}px`;
+}
+function closeCtxMenu() { $('ctxMenu').classList.remove('show'); }
+window.addEventListener('pointerdown', e => { if (!$('ctxMenu').contains(e.target)) closeCtxMenu(); });
+window.addEventListener('keydown', e => { if (e.code === 'Escape') closeCtxMenu(); });
+$('cy').addEventListener('contextmenu', e => e.preventDefault());
+
+function onGraphContextMenu(e) {
+  const oe = e.originalEvent || {};
+  const x = oe.clientX ?? 0;
+  const y = oe.clientY ?? 0;
+  const entries = [];
+  const t = e.target;
+  if (t === cy || (t.isNode && t.isNode() && t.data('isGroup'))) {
+    entries.push(
+      { head: 'view' },
+      { label: 'fit view', run: () => cy && cy.fit(undefined, 30) },
+      { label: 'expand all units', run: () => {
+          if ($('layoutMode').value === 'units') $('layoutMode').value = 'system';
+          setCollapsed(new Set());
+        } },
+      { label: 'group all units', run: () => { if (units) setCollapsed(new Set(Object.keys(units.units))); } },
+      { label: 'show all units', run: () => setHidden(new Set()) },
+      '—',
+      { label: 'clear selection', run: clearSelection }
+    );
+  } else if (t.isNode && t.isNode()) {
+    const d = t.data();
+    if (d.isUnit) {
+      entries.push(
+        { head: d.label },
+        { label: 'select', run: () => selectUnit(d.id) },
+        { label: 'expand unit', run: () => { const n = new Set(collapsedSet); n.delete(d.id); setCollapsed(n); } },
+        { label: 'hide unit', run: () => { const n = new Set(hiddenSet); n.add(d.id); setHidden(n); } }
+      );
+    } else {
+      entries.push(
+        { head: d.label },
+        { label: 'select', run: () => selectVertex(d.id) }
+      );
+      const unitId = units && units.unitOf[d.id];
+      if (unitId) {
+        const u = units.units[unitId];
+        entries.push(
+          '—',
+          { label: `group into ${u.label}`, run: () => { const n = new Set(collapsedSet); n.add(unitId); setCollapsed(n); } },
+          { label: `hide ${u.label}`, run: () => { const n = new Set(hiddenSet); n.add(unitId); setHidden(n); } }
+        );
+      }
+    }
+  } else if (t.isEdge && t.isEdge()) {
+    const name = String(t.data('label') || '').split(' ⇒ ')[0];
+    entries.push(
+      { head: name },
+      { label: 'select', run: () => { const edge = cy.getElementById(t.id()); if (edge.nonempty()) selectEdge(edge); } }
+    );
+  }
+  if (entries.length) openCtxMenu(x, y, entries);
+}
+
+/* ── settings popover (theme / units / colorscale) ───────────── */
+$('settingsBtn').addEventListener('click', () => {
+  $('settingsPanel').hidden = !$('settingsPanel').hidden;
+});
+window.addEventListener('pointerdown', e => {
+  if (!$('settingsWrap').contains(e.target)) $('settingsPanel').hidden = true;
+});
 
 for (const btn of document.querySelectorAll('#unitToggle button')) {
   btn.addEventListener('click', () => {

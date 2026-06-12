@@ -27,6 +27,14 @@ Feature queue for the prototype, roughly ordered. Items marked (Mike,
 
 ## Done (this session)
 
+- UI declutter pass: theme/units/colorscale into a topbar ⚙ popover;
+  collapse/expand-all moved from the graph toolbar into a right-click
+  context menu (per-object group/hide/select + background view actions).
+- Per-unit show/hide checkbox column in the systems tree (next to the
+  expand/group column), with tri-state section toggles.
+- Loop boundary rectangles in the system-flow layout (one labeled box
+  per loop, supply+demand sides together, membership by layout band).
+
 - Unit collapse/expand (AHU / plant side / distribution / zone equip)
   with double-click + ⊟/⊞ all; stateless display rebuild.
 - Component icon glyphs by object class; unit-type glyphs.

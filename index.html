@@ -22,14 +22,6 @@
     <button data-metric="temperature">Temperature</button>
     <button data-metric="massFlow">Flow</button>
   </div>
-  <div id="themeToggle" style="display:flex;border:1px solid var(--hairline-2);border-radius:4px;overflow:hidden">
-    <button data-theme="dark" class="on" style="appearance:none;border:0;background:var(--panel-2);color:var(--ink-dim);font:600 11px/1 var(--sans);letter-spacing:0.08em;padding:8px 12px;cursor:pointer">DARK</button>
-    <button data-theme="light" style="appearance:none;border:0;border-left:1px solid var(--hairline-2);background:var(--panel-2);color:var(--ink-dim);font:600 11px/1 var(--sans);letter-spacing:0.08em;padding:8px 12px;cursor:pointer">LIGHT</button>
-  </div>
-  <div id="unitToggle" style="display:flex;border:1px solid var(--hairline-2);border-radius:4px;overflow:hidden">
-    <button data-units="si" class="on" style="appearance:none;border:0;background:var(--panel-2);color:var(--ink-dim);font:600 11px/1 var(--sans);letter-spacing:0.08em;padding:8px 12px;cursor:pointer">SI</button>
-    <button data-units="ip" style="appearance:none;border:0;border-left:1px solid var(--hairline-2);background:var(--panel-2);color:var(--ink-dim);font:600 11px/1 var(--sans);letter-spacing:0.08em;padding:8px 12px;cursor:pointer">IP</button>
-  </div>
   <div id="spacer"></div>
   <div id="legend">
     <div class="legendItem"><span>temp</span><span class="legendBar" id="legendTempBar"></span>
@@ -37,12 +29,31 @@
       <input class="scaleIn" id="scaleTempMax" title="temp scale max (blank = auto)"> <span id="legendTempUnitLbl">°C</span></div>
     <div class="legendItem"><span>flow</span><span class="legendBar" id="legendFlowBar"></span>
       0 – <input class="scaleIn" id="scaleFlowMax" title="flow scale max (blank = auto)"> <span id="legendFlowUnitLbl">kg/s</span></div>
-    <select id="rampPick" title="temperature colorscale">
-      <option value="thermal">thermal</option>
-      <option value="coolwarm">coolwarm</option>
-      <option value="viridis">viridis</option>
-      <option value="inferno">inferno</option>
-    </select>
+  </div>
+  <div id="settingsWrap">
+    <button id="settingsBtn" title="display settings">⚙</button>
+    <div id="settingsPanel" hidden>
+      <div class="setRow"><label>theme</label>
+        <div id="themeToggle" class="seg2">
+          <button data-theme="dark" class="on">DARK</button>
+          <button data-theme="light">LIGHT</button>
+        </div>
+      </div>
+      <div class="setRow"><label>units</label>
+        <div id="unitToggle" class="seg2">
+          <button data-units="si" class="on">SI</button>
+          <button data-units="ip">IP</button>
+        </div>
+      </div>
+      <div class="setRow"><label>colorscale</label>
+        <select id="rampPick" title="temperature colorscale">
+          <option value="thermal">thermal</option>
+          <option value="coolwarm">coolwarm</option>
+          <option value="viridis">viridis</option>
+          <option value="inferno">inferno</option>
+        </select>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -55,7 +66,7 @@
       </div>
     </div>
     <div id="systemsBody">
-      <div class="sysLegend">☑ expanded · ☐ collapsed to unit</div>
+      <div class="sysLegend">boxes: 1st ☑ expanded (☐ grouped) · 2nd ☑ shown (☐ hidden)</div>
       <div id="systemsTree"><span class="empty">no dataset</span></div>
     </div>
   </div>
@@ -72,8 +83,6 @@
             <option value="organic">organic</option>
             <option value="units">unit overview</option>
           </select>
-          <button class="toolBtn" id="collapseAll" title="collapse every unit (AHUs, plant sides, distribution, zone equipment)">⊟ units</button>
-          <button class="toolBtn" id="expandAll" title="expand every unit">⊞ units</button>
           <button class="toolBtn" id="fit">fit</button>
           <button class="toolBtn paneToggle" data-target="graphPane">—</button>
         </div>
@@ -128,6 +137,7 @@
 </div>
 
 <div id="dropToast">reading file…</div>
+<div id="ctxMenu"></div>
 <script type="module" src="/src/app.js"></script>
 </body>
 </html>

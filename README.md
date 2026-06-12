@@ -22,13 +22,20 @@ node test suite. `npm run build` emits `dist/`. Demo datasets live in
 gitignored `public/demo-data/` and auto-load in dev (dataset selector:
 Large Office VAV / Hospital / Small Office).
 
-- **Panels**: systems tree (collapsible unit hierarchy with checkboxes —
-  checked = expanded; zone equipment + distribution collapse by
-  default), system graph (Cytoscape; system-flow / organic / unit
-  overview layouts, loop filter, double-click collapses/expands units),
-  3D zones (Three.js), inspector sidebar, and a bottom transport bar
-  (play/pause, speed, annual scrub with month ruler; space / ←→
-  keyboard control). All panels resize via grabbers and collapse.
+- **Panels**: systems tree (collapsible unit hierarchy with two checkbox
+  columns per unit — expand/group and show/hide, with tri-state section
+  toggles; zone equipment + distribution collapse by default), system
+  graph (Cytoscape; system-flow / organic / unit overview layouts, loop
+  filter, double-click collapses/expands units, right-click context menu
+  for group / hide / select-all actions), 3D zones (Three.js), inspector
+  sidebar, and a bottom transport bar (play/pause, speed, annual scrub
+  with month ruler; space / ←→ keyboard control). All panels resize via
+  grabbers and collapse. Set-and-forget controls (theme, SI/IP units,
+  colorscale) live in the topbar ⚙ popover. The system-flow layout draws
+  each loop as a labeled boundary rectangle around its band (supply +
+  demand sides of a plant loop share one box); box membership follows
+  the layout's band assignment, since dual-membership components (an
+  air-loop coil on a CHW demand branch) are drawn in one band only.
 - **Metric toggle** (System | Temperature | Flow): System colors by loop
   function (air amber, HW red, CHW blue, CW green — plant loops
   classified by operating temps, not names); Temperature/Flow use ramps.
