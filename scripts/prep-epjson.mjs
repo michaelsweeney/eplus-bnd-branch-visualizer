@@ -169,18 +169,34 @@ function resolveEnergyPlus(root, version) {
 
 function resolveEnergyPlusTool(root, version, tool) {
   if (!version) throw new Error('Cannot detect EnergyPlus version from Version object.');
-  const candidates = [
-    path.join(root, version, tool),
-    path.join(root, version, 'bin', tool),
-    path.join(root, `EnergyPlus-${version}`, tool),
-    path.join(root, `EnergyPlus-${version}`, 'bin', tool),
-    path.join(root, version, tool === 'energyplus' ? 'EnergyPlus' : tool)
-  ];
+  const installDirs = [version, `EnergyPlus-${version}`, ...matchingInstallDirs(root, version)];
+  const candidates = installDirs.flatMap(dir => [
+    path.join(root, dir, tool),
+    path.join(root, dir, 'bin', tool),
+    ...(tool === 'energyplus' ? [path.join(root, dir, 'EnergyPlus')] : [])
+  ]);
   const found = candidates.find(file => fs.existsSync(file));
   if (!found) {
     throw new Error(`Could not find ${tool} for EnergyPlus ${version} under ${root}`);
   }
   return found;
+}
+
+function matchingInstallDirs(root, version) {
+  let entries;
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  // Release installs are named EnergyPlus-<x.y.z>-<sha>-<platform>; a
+  // detected "25.2" must match "EnergyPlus-25.2.0-..." but not "25.20".
+  const prefix = `EnergyPlus-${version}`;
+  return entries
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
+    .filter(name => name === prefix || name.startsWith(`${prefix}.`) || name.startsWith(`${prefix}-`))
+    .sort();
 }
 
 function runEnergyPlus({ executable, weather, outputDir, modelFile }) {

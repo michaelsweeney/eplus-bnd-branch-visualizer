@@ -37,6 +37,44 @@ test('prep-epjson injects node outputs and sqlite output', () => {
   assert.ok(variables.some(v => v.variable_name === 'System Node Mass Flow Rate'));
 });
 
+test('prep-epjson resolves tools inside full release-named install dirs', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bnd-prep-release-'));
+  const input = path.join(dir, 'model.idf');
+  const output = path.join(dir, 'model.prepped.epJSON');
+  const root = path.join(dir, 'energyplus');
+  const installDir = path.join(
+    root,
+    'EnergyPlus-25.2.0-cf7368216c-Linux-Ubuntu24.04-x86_64'
+  );
+  const converter = path.join(installDir, 'ConvertInputFormat');
+  fs.mkdirSync(installDir, { recursive: true });
+  fs.writeFileSync(input, 'Version, 25.2;\n');
+  fs.writeFileSync(
+    converter,
+    `#!/bin/sh
+idf="$2"
+out="\${idf%.idf}.epJSON"
+cat > "$out" <<'JSON'
+{"Version":{"Version 1":{"version_identifier":"25.2"}}}
+JSON
+`
+  );
+  fs.chmodSync(converter, 0o755);
+
+  const result = spawnSync(
+    process.execPath,
+    ['scripts/prep-epjson.mjs', input, '--out', output, '--energyplus-root', root],
+    { cwd: path.resolve(__dirname, '..'), encoding: 'utf8' }
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  const patched = JSON.parse(fs.readFileSync(output, 'utf8'));
+  assert.equal(
+    patched['Output:SQLite'].BNDPrepOutputSQLite.option_type,
+    'SimpleAndTabular'
+  );
+});
+
 test('prep-epjson converts IDF input before patching outputs', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bnd-prep-idf-'));
   const input = path.join(dir, 'model.idf');

@@ -4,3 +4,4 @@ node_modules/
 dist/
 coverage/
 test-matrix/
+demo-data/

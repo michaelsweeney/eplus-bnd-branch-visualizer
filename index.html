@@ -591,7 +591,15 @@ function renderZones3d() {
     return;
   }
   $('zone3dEmpty').style.display = 'none';
-  if (!threeView) initThree();
+  if (!threeView) {
+    try {
+      initThree();
+    } catch (error) {
+      $('zone3dEmpty').style.display = 'flex';
+      $('zone3dEmpty').textContent = `3D view unavailable — WebGL context failed (${error.message}).`;
+      return;
+    }
+  }
   threeView.zoneGroup.clear();
 
   const center = boundsCenter(geometry.bounds);
@@ -836,6 +844,22 @@ if (window.BND_SAMPLES && window.BND_SAMPLES.length) {
   }
 } else {
   $('samplePicker').parentElement.style.display = 'none';
+}
+
+// #bnd=URL&geometry=URL&data=URL auto-load when served over http(s)
+// (shareable demo links; also the hook for headless smoke tests)
+const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+const hashView = hashParams.get('view');
+if (hashView && [...$('viewMode').options].some(o => o.value === hashView)) {
+  $('viewMode').value = hashView;
+}
+for (const [key, load] of [['bnd', loadText], ['geometry', loadGeometry], ['data', loadPlayback]]) {
+  const url = hashParams.get(key);
+  if (!url) continue;
+  fetch(url)
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
+    .then(t => load(decodeURIComponent(url.split('/').pop() || url), t))
+    .catch(error => { $('drop').textContent = `${key}=${url}: ${error.message}`; });
 }
 </script>
 </body>

@@ -30,6 +30,45 @@ The topology prototype has been copied into this repo for local testing:
 - Run `npm run collect:samples` to regenerate the optional `samples.js`
   dropdown from local EnergyPlus output folders. Missing sample sources
   are skipped.
+- When served over http(s), hash params auto-load files and select the
+  view — shareable demo links and the hook for headless smoke tests:
+  `index.html#bnd=<url>&geometry=<url>&data=<url>&view=<topology|zones|chart|split>`.
+  (`#sample=N` still works for embedded samples on `file://`.)
+
+## End-to-end demo (validated 2026-06-12)
+
+The full chain — IDF in, three synchronized views out — against a real
+EnergyPlus 22.1 install:
+
+```sh
+node scripts/prep-epjson.mjs model.idf \
+  --out demo-data/model.prepped.epJSON \
+  --preset nodes-hourly \
+  --run --weather path/to/weather.epw \
+  --output-dir demo-data/run
+
+node scripts/export-playback.mjs demo-data/run/eplusout.sql \
+  --out demo-data/model.playback.json
+
+python3 -m http.server 8741
+# open http://127.0.0.1:8741/index.html#bnd=demo-data/run/eplusout.bnd&geometry=demo-data/model.prepped.epJSON&data=demo-data/model.playback.json&view=split
+```
+
+The small-office ASHRAE 901 STD2022 Seattle prototype produced 86 node
+series × 8760 hourly timesteps; all four views (topology with playback
+edge styling, 3D zones, chart, split) render. `demo-data/` is gitignored
+scratch space for this workflow.
+
+Headless screenshots need software WebGL enabled for the 3D view:
+
+```sh
+google-chrome --headless --no-sandbox --enable-unsafe-swiftshader \
+  --screenshot=/tmp/shot.png --window-size=1400,900 --virtual-time-budget=8000 \
+  'http://127.0.0.1:8741/index.html#bnd=...&view=zones'
+```
+
+Without WebGL the 3D view degrades to an explanatory message instead of
+a blank canvas.
 
 Prep an epJSON model for node-level playback data:
 
