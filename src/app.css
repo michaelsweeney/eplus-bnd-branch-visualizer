@@ -370,5 +370,7 @@ body.light #ctxMenu { box-shadow: 0 8px 26px rgba(40,50,70,0.2); }
 .ctxSep { height: 1px; background: var(--hairline); margin: 4px 2px; }
 
 /* visibility column in the systems tree */
-#systems input.sysVis, #systems input.sysAllVis { accent-color: var(--water); }
+#systems input.sysVis, #systems input.sysAllVis, #systems input.sysAllVisG { accent-color: var(--water); }
 .sysRow.off .sysLabel, .sysRow.off .sysCount { opacity: 0.4; }
+.sysMaster { margin-bottom: 10px; border-bottom: 1px solid var(--hairline-2); }
+.sysCaretPad { width: 16px; flex: none; }

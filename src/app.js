@@ -313,7 +313,14 @@ function renderSystemsTree() {
     root.innerHTML = '<span class="empty">no units</span>';
     return;
   }
-  let html = '';
+  const allIds = Object.keys(units.units);
+  let html = `<div class="sysHead sysMaster">
+    <span class="sysCaretPad"></span>
+    <input type="checkbox" class="sysAllG" title="expand / group everything">
+    <input type="checkbox" class="sysAllVisG" title="show / hide everything">
+    <span class="sysTitle">ALL SYSTEMS</span>
+    <span class="sysCount">${allIds.length}</span>
+  </div>`;
   for (const [type, title] of SYS_SECTIONS) {
     const list = Object.values(units.units)
       .filter(u => u.type === type)
@@ -371,6 +378,21 @@ function renderSystemsTree() {
       setCollapsed(next);
     });
   }
+  const masterG = root.querySelector('.sysAllG');
+  const masterV = root.querySelector('.sysAllVisG');
+  const expandedAll = allIds.filter(id => !collapsedSet.has(id)).length;
+  masterG.checked = expandedAll === allIds.length;
+  masterG.indeterminate = expandedAll > 0 && expandedAll < allIds.length;
+  masterG.addEventListener('change', () => {
+    if (masterG.checked && $('layoutMode').value === 'units') $('layoutMode').value = 'system';
+    setCollapsed(masterG.checked ? new Set() : new Set(allIds));
+  });
+  const shownAll = allIds.filter(id => !hiddenSet.has(id)).length;
+  masterV.checked = shownAll === allIds.length;
+  masterV.indeterminate = shownAll > 0 && shownAll < allIds.length;
+  masterV.addEventListener('change', () => {
+    setHidden(masterV.checked ? new Set() : new Set(allIds));
+  });
   for (const all of root.querySelectorAll('.sysAllVis')) {
     const type = all.dataset.type;
     const ids = Object.values(units.units).filter(u => u.type === type).map(u => u.id);
