@@ -20,6 +20,19 @@
 // Components that touch both a water loop and an air loop (water coils)
 // are drawn airside — the water edge crossing columns is the schematic.
 
+// Corridor lanes: each water loop gets a stable lane index (sorted loop
+// names) so CHW/CW/HW runs draw as parallel lines instead of overlapping —
+// the way piping drawings keep CHWS/CWS/HWS as separate parallel runs.
+// Air loops get no lane: their edges stay within their own band.
+export function assignLoopLanes(loopKind) {
+  const water = Object.keys(loopKind)
+    .filter(l => loopKind[l] === 'Plant' || loopKind[l] === 'Condenser')
+    .sort();
+  const lanes = {};
+  water.forEach((name, i) => { lanes[name] = i; });
+  return { lanes, count: water.length };
+}
+
 export function computeSystemLayout(model, graph) {
   const ids = Object.keys(graph.vertices).sort();
   const V = graph.vertices;

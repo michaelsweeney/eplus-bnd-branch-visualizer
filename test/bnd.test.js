@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { parseBnd } from '../src/parsebnd.js';
 import { buildGraph } from '../src/buildgraph.js';
-import { computeSystemLayout } from '../src/layoutbnd.js';
+import { computeSystemLayout, assignLoopLanes } from '../src/layoutbnd.js';
 
 const fixture = `
 ! Node,Number,Node Name,Fluid Type,References
@@ -70,4 +70,24 @@ test('computeSystemLayout returns deterministic positions for leaf vertices', ()
   assert.deepEqual(first.positions, second.positions);
   assert.equal(first.colOf['ZONE|Office Zone'], 3);
   assert.equal(first.bandOf['Fan:VariableVolume|Supply Fan'], 'Main Air Loop');
+});
+
+test('assignLoopLanes gives water loops stable distinct lanes, air loops none', () => {
+  const loopKind = {
+    'CHW LOOP': 'Plant',
+    'HW LOOP': 'Plant',
+    'CW LOOP': 'Condenser',
+    'MAIN AIR LOOP': 'Air'
+  };
+  const first = assignLoopLanes(loopKind);
+  const second = assignLoopLanes(loopKind);
+
+  assert.deepEqual(first, second);
+  assert.equal(first.count, 3);
+  assert.equal(new Set(Object.values(first.lanes)).size, 3); // all distinct
+  assert.equal(first.lanes['MAIN AIR LOOP'], undefined);
+  // sorted loop names -> stable lane order across runs and models
+  assert.equal(first.lanes['CHW LOOP'], 0);
+  assert.equal(first.lanes['CW LOOP'], 1);
+  assert.equal(first.lanes['HW LOOP'], 2);
 });

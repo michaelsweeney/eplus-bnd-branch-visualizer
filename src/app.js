@@ -3,7 +3,7 @@ import cytoscapeFcose from 'cytoscape-fcose';
 import * as THREE from 'three';
 import { parseBnd } from './parsebnd.js';
 import { buildGraph } from './buildgraph.js';
-import { computeSystemLayout } from './layoutbnd.js';
+import { computeSystemLayout, assignLoopLanes } from './layoutbnd.js';
 import { parseEpjsonGeometry } from './parsegeometry.js';
 import { assignUnits } from './units.js';
 import './app.css';
@@ -989,6 +989,34 @@ function formatBounds(bounds) {
 
 /* ── layout ──────────────────────────────────────────────────── */
 
+// Corridor lanes in taxi modes: each water loop turns at its own distance
+// and attaches a few px off node center, so CHW/CW/HW runs sharing a
+// corridor draw as parallel lines. Inline styles; organic mode clears them.
+function applyEdgeLanes() {
+  if (!cy || !graph) return;
+  const { lanes, count } = assignLoopLanes(graph.loopKind || {});
+  if (!count) return;
+  const center = (count - 1) / 2;
+  cy.batch(() => {
+    cy.edges().forEach(edge => {
+      if (edge.data('fluid') === 'Air') return;
+      const loop = loopNameForGraphId(edge.data('source')) || loopNameForGraphId(edge.data('target'));
+      const lane = lanes[loop];
+      if (lane == null) return;
+      const dy = Math.max(-8, Math.min(8, Math.round((lane - center) * 4)));
+      edge.style({
+        'taxi-turn': 34 + lane * 10,
+        'source-endpoint': `0 ${dy}`,
+        'target-endpoint': `0 ${dy}`
+      });
+    });
+  });
+}
+
+function clearEdgeLanes() {
+  if (cy) cy.edges().removeStyle('taxi-turn source-endpoint target-endpoint');
+}
+
 function applyLayout() {
   if (!cy) return;
   const mode = $('layoutMode').value;
@@ -1018,6 +1046,7 @@ function applyLayout() {
       .selector('edge').style({ 'curve-style': 'taxi', 'taxi-direction': 'rightward',
                                 'taxi-turn': 40, 'taxi-turn-min-distance': 12 })
       .update();
+    applyEdgeLanes();
     cy.fit(undefined, 40);
   } else if (mode === 'system') {
     // bands/columns already encode the grouping, so compounds are
@@ -1046,7 +1075,9 @@ function applyLayout() {
       .update();
     cy.layout({ name: 'preset', positions: n => posFor(n.id()),
                 animate: false, fit: true, padding: 30 }).run();
+    applyEdgeLanes();
   } else {
+    clearEdgeLanes();
     cy.batch(() => {
       cy.nodes('[?isGroup], [?isContainer]').style('display', 'element');
       cy.nodes().forEach(n => {
