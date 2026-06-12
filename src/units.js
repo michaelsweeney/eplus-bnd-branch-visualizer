@@ -33,13 +33,15 @@ function assignUnits(model, graph) {
   for (const c of model.connectors)
     connSide[`CONNECTOR:${c.type.toUpperCase()}|${c.name}`] = c;
 
+  // id is loop+side only: branch records say "Condenser Demand" where
+  // connector records say kind=Condenser side=Demand — same unit
   const loopUnit = (loopName, loopType) => {
     if (loopType === 'Air') return ensureUnit(`unit|AHU|${loopName}`, 'ahu', loopName);
-    const side = (loopType.split(' ')[1] || '').toLowerCase();
+    const side = (loopType.split(' ')[1] || 'loop').toLowerCase();
     return ensureUnit(
-      `unit|${loopType.replace(/\s+/g, '')}|${loopName}`,
+      `unit|SIDE|${loopName}|${side}`,
       'plant',
-      side ? `${loopName} · ${side}` : loopName
+      `${loopName} · ${side}`
     );
   };
 

@@ -83,6 +83,12 @@
   .legendBar { width: 84px; height: 6px; border-radius: 2px; }
   #legendTempBar { background: linear-gradient(to right, #2747c9, #2fa3c9, #3fae62, #c9b53a, #e0492f); }
   #legendFlowBar { background: linear-gradient(to right, #16303c, #1d6a83, #2aa7c4, #59e0f2); }
+  .scaleIn {
+    width: 42px; background: var(--panel-2); color: var(--ink);
+    border: 1px solid var(--hairline-2); border-radius: 3px;
+    font: 500 10px var(--mono); padding: 3px 4px; text-align: right;
+  }
+  .scaleIn:focus { outline: none; border-color: var(--accent-dim); }
 
   select {
     appearance: none; background: var(--panel-2); color: var(--ink);
@@ -145,6 +151,48 @@
   #inspector.closed #inspectorHead { height: 100%; flex-direction: column; padding: 10px 0; gap: 8px; border-bottom: 0; }
   #inspector.closed #inspectorHead .paneTitle { writing-mode: vertical-rl; letter-spacing: 0.22em; }
   #inspector.closed #inspectorHead .tools { margin-left: 0; margin-top: auto; }
+
+  /* ── systems tree ────────────────────────────────────────── */
+  #systems {
+    width: 248px; flex: none; border-right: 1px solid var(--hairline);
+    background: var(--panel-2); display: flex; flex-direction: column;
+  }
+  #systemsBody { flex: 1; overflow-y: auto; padding: 10px 10px 20px; }
+  #systemsBody::-webkit-scrollbar { width: 8px; }
+  #systemsBody::-webkit-scrollbar-thumb { background: var(--hairline-2); border-radius: 4px; }
+  #systems.closed { width: 30px !important; min-width: 30px; overflow: hidden; }
+  #systems.closed #systemsBody { display: none; }
+  #systems.closed #systemsHead { height: 100%; flex-direction: column; padding: 10px 0; gap: 8px; border-bottom: 0; }
+  #systems.closed #systemsHead .paneTitle { writing-mode: vertical-rl; letter-spacing: 0.22em; }
+  #systems.closed #systemsHead .tools { margin-left: 0; margin-top: auto; }
+  .sysLegend { font: 400 9px/1.4 var(--mono); color: var(--ink-faint); margin: 2px 2px 10px; }
+  .sysSection { margin-bottom: 12px; }
+  .sysHead {
+    display: flex; align-items: center; gap: 6px; padding: 3px 2px;
+    border-bottom: 1px solid var(--hairline); margin-bottom: 4px;
+  }
+  .sysCaret {
+    appearance: none; background: none; border: 0; color: var(--ink-faint);
+    cursor: pointer; font-size: 10px; padding: 0 2px; width: 16px;
+  }
+  .sysTitle { font: 600 9px/1 var(--mono); letter-spacing: 0.14em; color: var(--ink-dim); flex: 1; }
+  .sysCount { font: 400 9px/1 var(--mono); color: var(--ink-faint); }
+  .sysRow {
+    display: flex; align-items: center; gap: 6px; padding: 3px 2px 3px 20px;
+    border-radius: 3px; cursor: default;
+  }
+  .sysRow:hover { background: rgba(255,255,255,0.04); }
+  .sysRow.selected { background: rgba(255,198,107,0.12); }
+  .sysLabel {
+    font: 400 10px/1.3 var(--mono); color: var(--ink); flex: 1; cursor: pointer;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .sysLabel:hover { color: var(--accent); }
+  #systems input[type="checkbox"] { accent-color: var(--accent); margin: 0; cursor: pointer; }
+  body.mario #systems { background: #fff8e8; }
+  body.mario #systems .sysLabel { color: #4a3000; }
+  body.mario #systems .sysTitle { color: #a07030; }
+  body.mario #systems .sysLegend, body.mario #systems .sysCount { color: #b89760; }
 
   /* ── inspector sidebar ───────────────────────────────────── */
   #inspector {
@@ -290,12 +338,34 @@
   </div>
   <div id="spacer"></div>
   <div id="legend">
-    <div class="legendItem"><span>temp</span><span class="legendBar" id="legendTempBar"></span><span id="legendTempRange">—</span></div>
-    <div class="legendItem"><span>flow</span><span class="legendBar" id="legendFlowBar"></span><span id="legendFlowRange">—</span></div>
+    <div class="legendItem"><span>temp</span><span class="legendBar" id="legendTempBar"></span>
+      <input class="scaleIn" id="scaleTempMin" title="temp scale min (blank = auto)"> –
+      <input class="scaleIn" id="scaleTempMax" title="temp scale max (blank = auto)"> °C</div>
+    <div class="legendItem"><span>flow</span><span class="legendBar" id="legendFlowBar"></span>
+      0 – <input class="scaleIn" id="scaleFlowMax" title="flow scale max (blank = auto)"> kg/s</div>
+    <select id="rampPick" title="temperature colorscale">
+      <option value="thermal">thermal</option>
+      <option value="coolwarm">coolwarm</option>
+      <option value="viridis">viridis</option>
+      <option value="inferno">inferno</option>
+    </select>
   </div>
 </div>
 
 <div id="workspace">
+  <div id="systems">
+    <div id="systemsHead" class="paneHead">
+      <span class="paneTitle">SYSTEMS</span>
+      <div class="tools">
+        <button class="toolBtn paneToggle" data-target="systems">—</button>
+      </div>
+    </div>
+    <div id="systemsBody">
+      <div class="sysLegend">☑ expanded · ☐ collapsed to unit</div>
+      <div id="systemsTree"><span class="empty">no dataset</span></div>
+    </div>
+  </div>
+  <div class="splitter" id="splitSystems"></div>
   <div id="panes">
     <div class="pane" id="graphPane">
       <div class="paneHead">
@@ -402,7 +472,7 @@ function loadText(name, text) {
   model = parseBnd(text);
   graph = buildGraph(model);
   units = assignUnits(model, graph);
-  collapsedSet = new Set();
+  collapsedSet = defaultCollapsedSet();
   for (const el of graph.elements)
     if (!el.data.source) el.data.origParent = el.data.parent || null;
   if (graph.elements.length === 0) {
@@ -424,6 +494,7 @@ function loadText(name, text) {
   applyLayout();
   updateDatasetChip(name);
   applyPlaybackToGraph();
+  renderSystemsTree();
   maybeApplyHashSelection();
 }
 
@@ -622,6 +693,89 @@ function setCollapsed(nextSet) {
   createCy(buildDisplayElements());
   applyLayout();
   applyPlaybackToGraph();
+  renderSystemsTree();
+}
+
+// Default: zone equipment + distribution collapsed (repetitive per-zone
+// noise), AHUs and plant sides expanded.
+function defaultCollapsedSet() {
+  return new Set(
+    Object.values(units.units)
+      .filter(u => u.type === 'zoneeq' || u.type === 'dist')
+      .map(u => u.id)
+  );
+}
+
+/* ── systems tree panel ──────────────────────────────────────── */
+const SYS_SECTIONS = [['ahu', 'AIR LOOPS'], ['plant', 'PLANT'], ['dist', 'DISTRIBUTION'], ['zoneeq', 'ZONE EQUIPMENT']];
+const sysSectionOpen = { ahu: true, plant: true, dist: true, zoneeq: false };
+
+function renderSystemsTree() {
+  const root = $('systemsTree');
+  if (!units || !Object.keys(units.units).length) {
+    root.innerHTML = '<span class="empty">no units</span>';
+    return;
+  }
+  let html = '';
+  for (const [type, title] of SYS_SECTIONS) {
+    const list = Object.values(units.units)
+      .filter(u => u.type === type)
+      .sort((a, b) => a.label.localeCompare(b.label));
+    if (!list.length) continue;
+    const open = sysSectionOpen[type];
+    html += `<div class="sysSection">
+      <div class="sysHead">
+        <button class="sysCaret" data-type="${type}">${open ? '▾' : '▸'}</button>
+        <input type="checkbox" class="sysAll" data-type="${type}">
+        <span class="sysTitle">${title}</span>
+        <span class="sysCount">${list.length}</span>
+      </div>
+      <div class="sysList" data-type="${type}" style="display:${open ? 'block' : 'none'}">` +
+      list.map(u => `
+        <div class="sysRow${selection && selection.kind === 'unit' && selection.unitId === u.id ? ' selected' : ''}" data-unit="${esc(u.id)}">
+          <input type="checkbox" class="sysBox" data-unit="${esc(u.id)}" ${collapsedSet.has(u.id) ? '' : 'checked'}>
+          <span class="sysLabel" data-unit="${esc(u.id)}" title="${esc(u.label)} — click to select">${esc(u.label)}</span>
+          <span class="sysCount">${u.members.length}</span>
+        </div>`).join('') +
+      '</div></div>';
+  }
+  root.innerHTML = html;
+
+  for (const box of root.querySelectorAll('.sysBox')) {
+    box.addEventListener('change', () => {
+      const next = new Set(collapsedSet);
+      if (box.checked) next.delete(box.dataset.unit);
+      else next.add(box.dataset.unit);
+      setCollapsed(next);
+    });
+  }
+  for (const all of root.querySelectorAll('.sysAll')) {
+    const type = all.dataset.type;
+    const ids = Object.values(units.units).filter(u => u.type === type).map(u => u.id);
+    const expanded = ids.filter(id => !collapsedSet.has(id)).length;
+    all.checked = expanded === ids.length;
+    all.indeterminate = expanded > 0 && expanded < ids.length;
+    all.addEventListener('change', () => {
+      const next = new Set(collapsedSet);
+      for (const id of ids) {
+        if (all.checked) next.delete(id);
+        else next.add(id);
+      }
+      setCollapsed(next);
+    });
+  }
+  for (const caret of root.querySelectorAll('.sysCaret')) {
+    caret.addEventListener('click', () => {
+      const type = caret.dataset.type;
+      sysSectionOpen[type] = !sysSectionOpen[type];
+      const list = root.querySelector(`.sysList[data-type="${type}"]`);
+      list.style.display = sysSectionOpen[type] ? 'block' : 'none';
+      caret.textContent = sysSectionOpen[type] ? '▾' : '▸';
+    });
+  }
+  for (const label of root.querySelectorAll('.sysLabel')) {
+    label.addEventListener('click', () => selectUnit(label.dataset.unit));
+  }
 }
 
 function onGraphNodeDblTap(n) {
@@ -795,10 +949,37 @@ function systemColorForEdge(edge) {
   return (loopFunctionColors && loopFunctionColors[loop]) || SYSTEM_PALETTE.other;
 }
 
+// user-adjustable scale domains (null = auto from playback stats) + ramp
+const scale = { tempMin: null, tempMax: null, flowMax: null, ramp: 'thermal' };
+const RAMPS = {
+  thermal: ['#2747c9', '#2fa3c9', '#3fae62', '#c9b53a', '#e0492f'],
+  coolwarm: ['#3b4cc0', '#9abbff', '#f1ede9', '#f4987a', '#b40426'],
+  viridis: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'],
+  inferno: ['#0d0887', '#6a00a8', '#bc3754', '#f98e09', '#fcffa4']
+};
+function effectiveScale() {
+  const s = playbackStats || {};
+  return {
+    tempMin: scale.tempMin ?? s.tempMin,
+    tempMax: scale.tempMax ?? s.tempMax,
+    flowMax: scale.flowMax ?? s.flowMax
+  };
+}
+function rampColor(t) {
+  const stops = RAMPS[scale.ramp] || RAMPS.thermal;
+  const x = Math.max(0, Math.min(1, t)) * (stops.length - 1);
+  const i = Math.min(stops.length - 2, Math.floor(x));
+  const f = x - i;
+  const a = stops[i].match(/\w\w/g).map(h => parseInt(h, 16));
+  const b = stops[i + 1].match(/\w\w/g).map(h => parseInt(h, 16));
+  const mix = a.map((v, k) => Math.round(v + (b[k] - v) * f));
+  return `#${mix.map(v => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
 function colorForTemperature(value, min, max) {
   if (!Number.isFinite(value) || min == null || max == null) return '#56647c';
-  const t = max === min ? 0.5 : Math.max(0, Math.min(1, (value - min) / (max - min)));
-  return hslToHex((220 - t * 220) / 360, 0.66, 0.52);
+  const t = max === min ? 0.5 : (value - min) / (max - min);
+  return rampColor(t);
 }
 
 function colorForFlow(value, max) {
@@ -823,11 +1004,28 @@ function hslToHex(h, s, l) {
 }
 
 function updateLegend() {
-  const s = playbackStats;
-  const range = (min, max, unit) => (min == null ? '—' : `${min.toFixed(0)}–${max.toFixed(0)}${unit}`);
-  $('legendTempRange').textContent = s ? range(s.tempMin, s.tempMax, '°C') : '—';
-  $('legendFlowRange').textContent = s && s.flowMax != null ? `0–${s.flowMax.toFixed(0)} kg/s` : '—';
+  $('legendTempBar').style.background =
+    `linear-gradient(to right, ${(RAMPS[scale.ramp] || RAMPS.thermal).join(',')})`;
+  const eff = effectiveScale();
+  const set = (id, v) => { if (document.activeElement !== $(id)) $(id).value = v == null ? '' : String(Math.round(v * 10) / 10); };
+  set('scaleTempMin', eff.tempMin);
+  set('scaleTempMax', eff.tempMax);
+  set('scaleFlowMax', eff.flowMax);
 }
+
+for (const [id, key] of [['scaleTempMin', 'tempMin'], ['scaleTempMax', 'tempMax'], ['scaleFlowMax', 'flowMax']]) {
+  $(id).addEventListener('change', () => {
+    const v = parseFloat($(id).value);
+    scale[key] = Number.isFinite(v) ? v : null; // blank resets to auto
+    updateLegend();
+    if (playback) updateTime();
+  });
+}
+$('rampPick').addEventListener('change', () => {
+  scale.ramp = $('rampPick').value;
+  updateLegend();
+  if (playback) updateTime();
+});
 
 /* ── time / playback ─────────────────────────────────────────── */
 
@@ -911,6 +1109,7 @@ function stepTime() {
 function applyPlaybackToGraph() {
   if (!cy || !playback || !playback.nodes) return;
   const s = playbackStats || {};
+  const eff = effectiveScale();
   const mario = currentTheme === 'mario';
   cy.batch(() => {
     cy.edges().forEach(edge => {
@@ -920,8 +1119,8 @@ function applyPlaybackToGraph() {
       const flow = node && node.massFlow && node.massFlow.values[selectedTimeIndex];
       const peak = s.nodePeaks ? s.nodePeaks.get(nodeName) : null;
       if (Number.isFinite(temp) || Number.isFinite(flow)) {
-        const width = peak > 0 && s.flowMax > 0
-          ? 1.4 + Math.sqrt(peak / s.flowMax) * (mario ? 9 : 7)
+        const width = peak > 0 && eff.flowMax > 0
+          ? 1.4 + Math.sqrt(Math.min(1, peak / eff.flowMax)) * (mario ? 9 : 7)
           : 2;
         const util = peak > 0 && Number.isFinite(flow) ? Math.min(1, flow / peak) : null;
         const opacity = util == null ? 0.85 : 0.22 + 0.73 * Math.sqrt(util);
@@ -933,8 +1132,8 @@ function applyPlaybackToGraph() {
           color = systemColorForEdge(edge);
         } else {
           color = currentMetric === 'temperature'
-            ? (Number.isFinite(temp) ? colorForTemperature(temp, s.tempMin, s.tempMax) : '#56647c')
-            : colorForFlow(flow, s.flowMax);
+            ? (Number.isFinite(temp) ? colorForTemperature(temp, eff.tempMin, eff.tempMax) : '#56647c')
+            : colorForFlow(flow, eff.flowMax);
         }
         edge.style({ width, 'line-color': color, opacity });
         edge.toggleClass('flowing', util != null && util > 0.02);
@@ -1077,17 +1276,25 @@ function onGraphNodeTap(n) {
 function selectUnit(unitId) {
   const u = units && units.units[unitId];
   if (!u) return clearSelection();
-  selection = { kind: 'unit', title: u.label, zoneName: u.type === 'zoneeq' ? u.label.split(' · ')[0] : null };
+  selection = { kind: 'unit', unitId, title: u.label, zoneName: u.type === 'zoneeq' ? u.label.split(' · ')[0] : null };
   cy.elements().removeClass('sel linked');
   const node = cy.getElementById(unitId);
   if (node.nonempty()) {
+    // collapsed: the proxy is the selection
     node.addClass('sel');
     const edges = node.connectedEdges();
     edges.addClass('linked');
     edges.connectedNodes().difference(node).addClass('linked');
+  } else {
+    // expanded: highlight the member family in place
+    let members = cy.collection();
+    for (const id of u.members) members = members.union(cy.getElementById(id));
+    members.addClass('sel');
+    members.connectedEdges().addClass('linked');
   }
   updateZoneHighlights();
   renderUnitInspector(u);
+  renderSystemsTree();
   if (playback) updateTime();
 }
 
@@ -1619,6 +1826,12 @@ function wireSplitter(splitter, onDrag) {
     splitter.addEventListener('pointerup', up);
   });
 }
+
+wireSplitter($('splitSystems'), x => {
+  const rect = $('workspace').getBoundingClientRect();
+  const width = Math.min(420, Math.max(170, x - rect.left));
+  $('systems').style.width = `${width}px`;
+});
 
 wireSplitter($('splitPanes'), x => {
   const rect = $('panes').getBoundingClientRect();
