@@ -1,5 +1,11 @@
 # Agent kickoff brief — eplus-bnd-branch-visualizer
 
+> **Superseded 2026-06-11/12.** Mike overrode the release gate below and
+> had the prototype vendored locally instead of migrated; it now lives in
+> this repo and the full pipeline is validated (see README and git log).
+> Kept for the original context — the `@timestep/core` promotion plan in
+> step 3 is still the long-term intent.
+
 You are picking up a parked project. Read `README.md` in this repo first —
 it holds the full concept, the .bnd maintenance research, and the agreed
 architecture. This file tells you how to resume work.
