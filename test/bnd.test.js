@@ -1,9 +1,9 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
+import test from 'node:test';
+import assert from 'node:assert/strict';
 
-const { parseBnd } = require('../src/parsebnd');
-const { buildGraph } = require('../src/buildgraph');
-const { computeSystemLayout } = require('../src/layoutbnd');
+import { parseBnd } from '../src/parsebnd.js';
+import { buildGraph } from '../src/buildgraph.js';
+import { computeSystemLayout } from '../src/layoutbnd.js';
 
 const fixture = `
 ! Node,Number,Node Name,Fluid Type,References

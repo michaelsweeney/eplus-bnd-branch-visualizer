@@ -10,7 +10,7 @@
 // compound parents too — their children carry the flow, so the container
 // contributes no edges of its own.
 
-function buildGraph(model) {
+export function buildGraph(model) {
   const vertices = {}; // id -> {id, type, name, group, pairs: [{inlet, outlet}], container}
   const vid = (type, name) => `${type}|${name}`;
   const loopId = name => `loop|${name}`;
@@ -214,4 +214,3 @@ function buildGraph(model) {
   return { elements, vertices, connectionsByNode, loopKind, branchLoop };
 }
 
-if (typeof module !== 'undefined') module.exports = { buildGraph };

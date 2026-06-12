@@ -1,6 +1,6 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { assignUnits } = require('../src/units');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { assignUnits } from '../src/units.js';
 
 // Minimal model/graph shapes: an air loop branch with a fan, a VAV
 // terminal (zone equipment, containing a reheat coil that also sits on a

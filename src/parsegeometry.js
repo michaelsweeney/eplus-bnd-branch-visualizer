@@ -8,7 +8,7 @@
 // surfaces by zone. It intentionally stays renderer-neutral so it can be
 // tested in Node and later moved behind a topology/geometry data boundary.
 
-function parseEpjsonGeometry(epjson) {
+export function parseEpjsonGeometry(epjson) {
   const geometryRules = firstObject(epjson.GlobalGeometryRules) || {};
   const coordinateSystem = geometryRules.coordinate_system || 'Relative';
   const relative = String(coordinateSystem).toLowerCase() !== 'world';
@@ -148,4 +148,3 @@ function expandBounds(bounds, other) {
   bounds.max.z = Math.max(bounds.max.z, other.max.z);
 }
 
-if (typeof module !== 'undefined') module.exports = { parseEpjsonGeometry };

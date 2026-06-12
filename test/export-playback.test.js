@@ -1,9 +1,9 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 test('export-playback creates node-aligned playback JSON from EnergyPlus SQL tables', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bnd-playback-'));
@@ -61,7 +61,7 @@ insert into ReportData values
   const result = spawnSync(
     process.execPath,
     ['scripts/export-playback.mjs', db, '--out', out],
-    { cwd: path.resolve(__dirname, '..'), encoding: 'utf8' }
+    { cwd: path.resolve(import.meta.dirname, '..'), encoding: 'utf8' }
   );
 
   assert.equal(result.status, 0, result.stderr);
@@ -132,7 +132,7 @@ insert into ReportData values
   const result = spawnSync(
     process.execPath,
     ['scripts/export-playback.mjs', db, '--out', out, '--chunk', '1'],
-    { cwd: path.resolve(__dirname, '..'), encoding: 'utf8' }
+    { cwd: path.resolve(import.meta.dirname, '..'), encoding: 'utf8' }
   );
 
   assert.equal(result.status, 0, result.stderr);
@@ -198,7 +198,7 @@ insert into ReportData values
   const result = spawnSync(
     process.execPath,
     ['scripts/export-playback.mjs', db, '--out', out],
-    { cwd: path.resolve(__dirname, '..'), encoding: 'utf8' }
+    { cwd: path.resolve(import.meta.dirname, '..'), encoding: 'utf8' }
   );
 
   assert.equal(result.status, 0, result.stderr);

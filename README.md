@@ -14,19 +14,29 @@ worked out. See `PROMPT.md` for the original agent kickoff brief.
 
 ## Local prototype
 
-`index.html` is a single-page dark-UI explorer (UX iteration started
-2026-06-12; the Large Office demo set auto-loads when served over
-http(s)):
+A Vite app (`npm run dev`, default http://localhost:5173/) — vanilla ES
+modules, no framework; cytoscape/three come from npm. `index.html` is
+markup only; runtime lives in `src/app.js` + `src/app.css` with the
+parser/graph/layout/units libraries as plain modules shared with the
+node test suite. `npm run build` emits `dist/`. Demo datasets live in
+gitignored `public/demo-data/` and auto-load in dev (dataset selector:
+Large Office VAV / Hospital / Small Office).
 
-- **Split panes**: system graph (Cytoscape; system-flow or organic
-  layout, loop filter) and 3D zones (Three.js), with an inspector
-  sidebar and a bottom transport bar (play/pause, speed, annual scrub
-  with month ruler; space / ←→ keyboard control).
-- **Metric toggle** (Temperature | Flow) switches the edge color
-  encoding; edge width is always √mass-flow; zone boxes and 3D surfaces
-  heatmap by zone mean air temperature. Color scales are global to the
-  run (node temps percentile-clipped — stagnant coil outlet nodes report
-  physically absurd temperatures at zero flow); legend in the top bar.
+- **Panels**: systems tree (collapsible unit hierarchy with checkboxes —
+  checked = expanded; zone equipment + distribution collapse by
+  default), system graph (Cytoscape; system-flow / organic / unit
+  overview layouts, loop filter, double-click collapses/expands units),
+  3D zones (Three.js), inspector sidebar, and a bottom transport bar
+  (play/pause, speed, annual scrub with month ruler; space / ←→
+  keyboard control). All panels resize via grabbers and collapse.
+- **Metric toggle** (System | Temperature | Flow): System colors by loop
+  function (air amber, HW red, CHW blue, CW green — plant loops
+  classified by operating temps, not names); Temperature/Flow use ramps.
+  Edge width = capacity (node peak flow over the run), opacity = live
+  utilization. Zone boxes and 3D surfaces heatmap by zone mean air
+  temperature. Scale domains and the colorscale are editable in the
+  legend (blank input = auto; node temps percentile-clipped — stagnant
+  coil outlet nodes report physically absurd temperatures at zero flow).
 - **Linked selection**: clicking a zone in either pane selects it in
   both, highlights its connected HVAC nodes/edges amber, and shows its
   epJSON object + geometry + node connections in the inspector.
@@ -34,10 +44,11 @@ http(s)):
   zone (if any) in both panes; clicking an edge shows the fluid node.
 - **Drag-drop** any `.bnd`, epJSON, or playback JSON to replace the
   loaded set.
-- Run `npm test` for the parser/graph/layout/prep/export suites.
-- Hash params (http(s)): `#bnd=<url>&geometry=<url>&data=<url>` override
-  the default dataset; `#t=<index>` positions the scrub, `#play=1`
-  starts playback, `#sel=<zone name>` applies a zone selection.
+- Run `npm test` for the parser/graph/layout/units/prep/export suites.
+- Hash params: `#dataset=<key>` or `#bnd=/#geometry=/#data=<url>` pick
+  the data; `#t=<index>`, `#play=1`, `#sel=<zone name>`,
+  `#theme=mario`, `#layout=system|organic|units`, `#collapse=all`
+  restore a shareable app state.
 
 ## End-to-end demo (validated 2026-06-12)
 
@@ -46,22 +57,22 @@ EnergyPlus 22.1 install:
 
 ```sh
 node scripts/prep-epjson.mjs model.idf \
-  --out demo-data/model.prepped.epJSON \
+  --out public/demo-data/model.prepped.epJSON \
   --preset nodes-hourly \
   --run --weather path/to/weather.epw \
-  --output-dir demo-data/run
+  --output-dir public/demo-data/run
 
-node scripts/export-playback.mjs demo-data/run/eplusout.sql \
-  --out demo-data/model.playback.json
+node scripts/export-playback.mjs public/demo-data/run/eplusout.sql \
+  --out public/demo-data/model.playback.json
 
-python3 -m http.server 8741
-# open http://127.0.0.1:8741/index.html#bnd=demo-data/run/eplusout.bnd&geometry=demo-data/model.prepped.epJSON&data=demo-data/model.playback.json&view=split
+npm run dev
+# open http://localhost:5173/#bnd=demo-data/run/eplusout.bnd&geometry=demo-data/model.prepped.epJSON&data=demo-data/model.playback.json
 ```
 
 The small-office ASHRAE 901 STD2022 Seattle prototype produced 86 node
-series × 8760 hourly timesteps; all four views (topology with playback
-edge styling, 3D zones, chart, split) render. `demo-data/` is gitignored
-scratch space for this workflow.
+series × 8760 hourly timesteps. `public/demo-data/` is gitignored
+scratch space for this workflow (files under `public/` are served at
+the site root, so fetch URLs stay `demo-data/...`).
 
 The showcase set is the Large Office STD2022 New York prototype (VAV
 with reheat + chiller/boiler/tower plant): 357 node series + 23 zone
@@ -70,17 +81,18 @@ to survive this scale). Winter vs summer timesteps show visibly
 different zone heatmaps and reheat-loop activity:
 
 ```text
-#...&view=split&t=400     January evening
-#...&view=split&t=4263    late-June afternoon
-#...&view=split&play=1    autoplay from t=0
+#t=400              January evening
+#t=4263             late-June afternoon
+#play=1             autoplay from t=0
+#dataset=hospital   701 nodes + 55 zones
 ```
 
 Headless screenshots need software WebGL enabled for the 3D view:
 
 ```sh
 google-chrome --headless --no-sandbox --enable-unsafe-swiftshader \
-  --screenshot=/tmp/shot.png --window-size=1400,900 --virtual-time-budget=8000 \
-  'http://127.0.0.1:8741/index.html#bnd=...&view=zones'
+  --screenshot=/tmp/shot.png --window-size=1400,900 --virtual-time-budget=15000 \
+  'http://localhost:5173/#t=4263'
 ```
 
 Without WebGL the 3D view degrades to an explanatory message instead of
@@ -128,13 +140,15 @@ matching node series were found.
   each cell; stacks wrap at 14. Classification prefers branch membership,
   falls back to node fluid type (reheat coils draw airside, air-cooled
   chillers stay waterside). Band inference walks Air edges only.
-- `index.html` — drag-drop viewer (cytoscape, file://-friendly): sample
-  dropdown, system-flow + organic layouts, taxi polyline edges colored by
-  fluid, click drill-down to every object touching a node (setpoint
-  managers, controllers), loop filter, 3D zone geometry, node series chart,
-  `#sample=N` auto-load.
+- `src/app.js` + `index.html` — the explorer app (see "Local prototype"
+  above); click drill-down reaches every object touching a node
+  (setpoint managers, controllers).
+- `src/units.js` — collapsible unit membership (AHU / plant side /
+  distribution / zone equipment) from explicit .bnd structure,
+  containment-first.
 - `collect-samples.mjs` — embeds local .bnd files into a gitignored
-  `samples.js` for the file:// demo.
+  `samples.js` (legacy of the file:// demo; the app now fetches
+  `public/demo-data/` instead).
 
 Validated against 8 models (22.1 + 25.2; office/hotel/hospital/apartment
 archetypes): zero orphaned flow vertices, full loop closure.

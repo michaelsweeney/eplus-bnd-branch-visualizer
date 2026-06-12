@@ -20,7 +20,7 @@
 // Components that touch both a water loop and an air loop (water coils)
 // are drawn airside — the water edge crossing columns is the schematic.
 
-function computeSystemLayout(model, graph) {
+export function computeSystemLayout(model, graph) {
   const ids = Object.keys(graph.vertices).sort();
   const V = graph.vertices;
 
@@ -240,4 +240,3 @@ function computeSystemLayout(model, graph) {
   return { positions, colOf, bandOf, bandLabels };
 }
 
-if (typeof module !== 'undefined') module.exports = { computeSystemLayout };

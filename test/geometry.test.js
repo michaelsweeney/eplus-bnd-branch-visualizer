@@ -1,7 +1,7 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
+import test from 'node:test';
+import assert from 'node:assert/strict';
 
-const { parseEpjsonGeometry } = require('../src/parsegeometry');
+import { parseEpjsonGeometry } from '../src/parsegeometry.js';
 
 test('parseEpjsonGeometry groups detailed surfaces by zone', () => {
   const geometry = parseEpjsonGeometry({

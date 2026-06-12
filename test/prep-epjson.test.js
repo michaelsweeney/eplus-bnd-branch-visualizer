@@ -1,9 +1,9 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 test('prep-epjson injects node outputs and sqlite output', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bnd-prep-'));
@@ -23,7 +23,7 @@ test('prep-epjson injects node outputs and sqlite output', () => {
   const result = spawnSync(
     process.execPath,
     ['scripts/prep-epjson.mjs', input, '--out', output],
-    { cwd: path.resolve(__dirname, '..'), encoding: 'utf8' }
+    { cwd: path.resolve(import.meta.dirname, '..'), encoding: 'utf8' }
   );
 
   assert.equal(result.status, 0, result.stderr);
@@ -65,7 +65,7 @@ JSON
   const result = spawnSync(
     process.execPath,
     ['scripts/prep-epjson.mjs', input, '--out', output, '--energyplus-root', root],
-    { cwd: path.resolve(__dirname, '..'), encoding: 'utf8' }
+    { cwd: path.resolve(import.meta.dirname, '..'), encoding: 'utf8' }
   );
 
   assert.equal(result.status, 0, result.stderr);
@@ -100,7 +100,7 @@ JSON
   const result = spawnSync(
     process.execPath,
     ['scripts/prep-epjson.mjs', input, '--out', output, '--energyplus-root', root],
-    { cwd: path.resolve(__dirname, '..'), encoding: 'utf8' }
+    { cwd: path.resolve(import.meta.dirname, '..'), encoding: 'utf8' }
   );
 
   assert.equal(result.status, 0, result.stderr);

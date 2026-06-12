@@ -8,7 +8,7 @@
 // Classic script (no modules) so index.html works from file://; also
 // usable from node via module.exports for the test harness.
 
-function parseBnd(text) {
+export function parseBnd(text) {
   const model = {
     nodes: {}, // name -> {num, name, fluidType, refs, suspicious}
     componentSets: [], // {parentType, parentName, type, name, inlet, outlet, description}
@@ -245,4 +245,3 @@ function parseBnd(text) {
   return model;
 }
 
-if (typeof module !== 'undefined') module.exports = { parseBnd };

@@ -3,11 +3,23 @@
   "version": "0.0.0",
   "private": true,
   "description": "Local EnergyPlus .bnd topology visualizer and output prep helpers.",
+  "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "node --test",
     "collect:samples": "node scripts/collect-samples.mjs",
     "prep": "node scripts/prep-epjson.mjs",
     "export:playback": "node scripts/export-playback.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^8.0.16"
+  },
+  "dependencies": {
+    "cytoscape": "^3.30.2",
+    "cytoscape-fcose": "^2.2.0",
+    "three": "^0.149.0"
+  }
 }

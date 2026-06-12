@@ -11,7 +11,7 @@
 // reheat coil inside an air terminal belongs to the terminal's unit, and
 // its hot-water demand branch is left as wiring (a boundary edge after
 // collapse). Zones themselves are never unit members.
-function assignUnits(model, graph) {
+export function assignUnits(model, graph) {
   const vertices = graph.vertices;
   const units = {};
   const unitOf = {};
@@ -90,4 +90,3 @@ function assignUnits(model, graph) {
   return { units, unitOf };
 }
 
-if (typeof module !== 'undefined') module.exports = { assignUnits };
