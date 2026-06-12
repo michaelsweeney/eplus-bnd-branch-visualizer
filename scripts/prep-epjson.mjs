@@ -7,11 +7,13 @@ import { spawnSync } from 'child_process';
 const PRESETS = {
   nodes: [
     ['System Node Temperature', 'Timestep'],
-    ['System Node Mass Flow Rate', 'Timestep']
+    ['System Node Mass Flow Rate', 'Timestep'],
+    ['Zone Mean Air Temperature', 'Timestep']
   ],
   'nodes-hourly': [
     ['System Node Temperature', 'Hourly'],
-    ['System Node Mass Flow Rate', 'Hourly']
+    ['System Node Mass Flow Rate', 'Hourly'],
+    ['Zone Mean Air Temperature', 'Hourly']
   ],
   everything: [
     ['System Node Temperature', 'Timestep'],

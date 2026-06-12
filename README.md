@@ -24,6 +24,14 @@ The topology prototype has been copied into this repo for local testing:
 - Export a prepped `eplusout.sql` to playback JSON and drop it into the
   Data picker to chart node temperature or mass flow. Clicking a topology
   edge selects the matching node series when present.
+- With playback loaded, the time slider and ▶ autoplay drive all views
+  off one time index: topology edges color by node temperature and width
+  by √mass-flow, graph zone boxes and 3D zone surfaces heatmap by zone
+  mean air temperature, and the chart marker tracks. Color scales are
+  global to the run (node temps percentile-clipped — stagnant coil
+  outlet nodes report physically absurd temperatures at zero flow) and
+  shown in the legend. Clicking a zone in either view charts its zone
+  temperature series; topology↔3D selection linking stays by zone name.
 - Run `npm test` to exercise the parser, graph builder, deterministic
   layout, epJSON geometry reader, and epJSON prep helper with Node's
   built-in test runner.
@@ -32,7 +40,7 @@ The topology prototype has been copied into this repo for local testing:
   are skipped.
 - When served over http(s), hash params auto-load files and select the
   view — shareable demo links and the hook for headless smoke tests:
-  `index.html#bnd=<url>&geometry=<url>&data=<url>&view=<topology|zones|chart|split>`.
+  `index.html#bnd=<url>&geometry=<url>&data=<url>&view=<topology|zones|chart|split>&t=<timestep>&play=1`.
   (`#sample=N` still works for embedded samples on `file://`.)
 
 ## End-to-end demo (validated 2026-06-12)
@@ -58,6 +66,18 @@ The small-office ASHRAE 901 STD2022 Seattle prototype produced 86 node
 series × 8760 hourly timesteps; all four views (topology with playback
 edge styling, 3D zones, chart, split) render. `demo-data/` is gitignored
 scratch space for this workflow.
+
+The showcase set is the Large Office STD2022 New York prototype (VAV
+with reheat + chiller/boiler/tower plant): 357 node series + 23 zone
+series × 8760 h (94 MB playback JSON; the exporter batches its SQL reads
+to survive this scale). Winter vs summer timesteps show visibly
+different zone heatmaps and reheat-loop activity:
+
+```text
+#...&view=split&t=400     January evening
+#...&view=split&t=4263    late-June afternoon
+#...&view=split&play=1    autoplay from t=0
+```
 
 Headless screenshots need software WebGL enabled for the 3D view:
 

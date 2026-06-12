@@ -35,6 +35,7 @@ test('prep-epjson injects node outputs and sqlite output', () => {
   const variables = Object.values(patched['Output:Variable']);
   assert.ok(variables.some(v => v.variable_name === 'System Node Temperature'));
   assert.ok(variables.some(v => v.variable_name === 'System Node Mass Flow Rate'));
+  assert.ok(variables.some(v => v.variable_name === 'Zone Mean Air Temperature'));
 });
 
 test('prep-epjson resolves tools inside full release-named install dirs', () => {

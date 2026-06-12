@@ -48,6 +48,14 @@
   #panel .suspicious { color: #b00; font-weight: 600; }
   #panel .empty { color: #999; font-style: italic; }
   .hint { color: #999; font-size: 12px; }
+  #timeControls { display: inline-flex; align-items: center; gap: 6px; }
+  #timeSlider { width: 220px; }
+  #timeReadout { font-size: 12px; white-space: nowrap; }
+  #legend { position: absolute; left: 14px; bottom: 14px; background: rgba(255,255,255,0.92); border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; font-size: 11px; z-index: 5; }
+  #legend .legendRow { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  #legend .legendName { width: 62px; color: #666; }
+  #legend .legendBar { width: 110px; height: 9px; border-radius: 2px; border: 1px solid #ccc; }
+  #viewer { position: relative; }
 </style>
 </head>
 <body>
@@ -84,6 +92,17 @@
     </label>
     <label><input type="checkbox" id="showZones" checked> zones</label>
     <button id="fit">fit</button>
+    <span id="timeControls" style="display:none">
+      <button id="playToggle" title="play/pause">▶</button>
+      <select id="playSpeed" title="playback speed">
+        <option value="2">2 steps/s</option>
+        <option value="10">10 steps/s</option>
+        <option value="30" selected>30 steps/s</option>
+        <option value="120">120 steps/s</option>
+      </select>
+      <input type="range" id="timeSlider" min="0" max="0" value="0">
+      <strong id="timeReadout"></strong>
+    </span>
     <span class="hint">drop .bnd and epJSON files · click graph zones or 3D surfaces to link views</span>
   </div>
   <div id="viewer">
@@ -101,13 +120,14 @@
             <option value="massFlow">mass flow</option>
           </select>
         </label>
-        <label>Time:
-          <input type="range" id="timeSlider" min="0" max="0" value="0">
-        </label>
-        <strong id="timeReadout"></strong>
       </div>
       <canvas id="chartCanvas"></canvas>
       <div id="chartEmpty">Export playback JSON with <code>npm run export:playback -- eplusout.sql</code>, then drop it here.</div>
+    </div>
+    <div id="legend" style="display:none">
+      <div class="legendRow"><span class="legendName">node temp</span><span class="legendBar"></span><span id="legendNodeRange"></span></div>
+      <div class="legendRow"><span class="legendName">zone temp</span><span class="legendBar"></span><span id="legendZoneRange"></span></div>
+      <div class="legendRow"><span class="legendName">edge width</span><span id="legendFlow"></span></div>
     </div>
   </div>
 </div>
@@ -125,6 +145,10 @@ let geometry = null;
 let selectedZoneName = null;
 let threeView = null;
 let playback = null;
+let viewModePinned = false; // explicit #view= beats the load-order auto-switch
+let playbackStats = null;
+let playbackZonesUpper = null; // UPPER(zone name) -> { key, series } (SQL uppercases keys; epJSON/.bnd may not)
+let playTimer = null;
 let selectedPlaybackNode = null;
 let selectedPlaybackVariable = 'temperature';
 let selectedTimeIndex = 0;
@@ -205,7 +229,7 @@ function loadGeometry(name, text) {
   geometry = parseEpjsonGeometry(epjson);
   $('geometryName').textContent = `${name} (${geometry.zones.length} zones)`;
   renderZones3d();
-  if ($('viewMode').value === 'topology' && !cy) $('viewMode').value = 'zones';
+  if (!viewModePinned && $('viewMode').value === 'topology' && !cy) $('viewMode').value = 'zones';
   updateViewVisibility();
 }
 
@@ -219,16 +243,81 @@ function loadPlayback(name, text) {
     return;
   }
   const nodes = Object.keys(playback.nodes || {}).sort();
-  $('playbackName').textContent = `${name} (${nodes.length} nodes)`;
-  $('playbackNode').innerHTML = nodes.map(n => `<option>${esc(n)}</option>`).join('');
-  selectedPlaybackNode = nodes[0] || null;
+  const zones = Object.keys(playback.zones || {}).sort();
+  playbackZonesUpper = new Map(zones.map(z => [z.toUpperCase(), { key: z, series: playback.zones[z] }]));
+  playbackStats = computePlaybackStats(playback);
+  $('playbackName').textContent = `${name} (${nodes.length} nodes, ${zones.length} zones)`;
+  $('playbackNode').innerHTML =
+    (zones.length
+      ? `<optgroup label="zones">${zones.map(z => `<option value="zone:${esc(z)}">${esc(z)}</option>`).join('')}</optgroup>`
+      : '') +
+    `<optgroup label="nodes">${nodes.map(n => `<option>${esc(n)}</option>`).join('')}</optgroup>`;
+  selectedPlaybackNode = nodes[0] || (zones.length ? `zone:${zones[0]}` : null);
+  if (selectedPlaybackNode) $('playbackNode').value = selectedPlaybackNode;
   selectedPlaybackVariable = $('playbackVariable').value;
   selectedTimeIndex = 0;
+  setPlaying(false);
   $('timeSlider').max = Math.max(0, (playback.times || []).length - 1);
   $('timeSlider').value = '0';
-  if ($('viewMode').value === 'topology' && !cy && !geometry) $('viewMode').value = 'chart';
+  $('timeControls').style.display = (playback.times || []).length > 1 ? 'inline-flex' : 'none';
+  updateLegend();
+  if (!viewModePinned && $('viewMode').value === 'topology' && !cy && !geometry) $('viewMode').value = 'chart';
   updateChart();
   updateViewVisibility();
+}
+
+// Node temp scale uses clipped percentiles: stagnant-node artifacts (e.g.
+// coil water outlets at zero flow reporting >1000 C) would otherwise flatten
+// the whole heatmap. colorForTemperature clamps, so outliers just saturate.
+function computePlaybackStats(pb) {
+  const stats = { tempMin: null, tempMax: null, flowMax: null, zoneMin: null, zoneMax: null };
+  const nodeTemps = [];
+  for (const node of Object.values(pb.nodes || {})) {
+    if (node.temperature) {
+      const values = node.temperature.values || [];
+      const stride = Math.max(1, Math.ceil(values.length / 2000));
+      for (let i = 0; i < values.length; i += stride) {
+        if (Number.isFinite(values[i])) nodeTemps.push(values[i]);
+      }
+    }
+    for (const v of (node.massFlow && node.massFlow.values) || []) {
+      if (Number.isFinite(v) && (stats.flowMax == null || v > stats.flowMax)) stats.flowMax = v;
+    }
+  }
+  nodeTemps.sort((a, b) => a - b);
+  if (nodeTemps.length) {
+    const q = p => nodeTemps[Math.round(p * (nodeTemps.length - 1))];
+    stats.tempMin = q(0.005);
+    stats.tempMax = q(0.995);
+  }
+  for (const zone of Object.values(pb.zones || {})) {
+    for (const v of (zone.temperature && zone.temperature.values) || []) {
+      if (!Number.isFinite(v)) continue;
+      if (stats.zoneMin == null || v < stats.zoneMin) stats.zoneMin = v;
+      if (stats.zoneMax == null || v > stats.zoneMax) stats.zoneMax = v;
+    }
+  }
+  return stats;
+}
+
+function zoneSeriesFor(zoneName) {
+  const entry = playbackZonesUpper && playbackZonesUpper.get(String(zoneName).toUpperCase());
+  return entry ? entry.series : null;
+}
+
+function updateLegend() {
+  const s = playbackStats;
+  const any = s && (s.tempMin != null || s.zoneMin != null || s.flowMax != null);
+  $('legend').style.display = any ? 'block' : 'none';
+  if (!any) return;
+  const stops = [];
+  for (let i = 0; i <= 10; i++) stops.push(colorForTemperature(i, 0, 10));
+  const gradient = `linear-gradient(to right, ${stops.join(',')})`;
+  for (const bar of document.querySelectorAll('#legend .legendBar')) bar.style.background = gradient;
+  const range = (min, max) => (min == null ? 'n/a' : `${min.toFixed(1)}–${max.toFixed(1)} C`);
+  $('legendNodeRange').textContent = range(s.tempMin, s.tempMax);
+  $('legendZoneRange').textContent = range(s.zoneMin, s.zoneMax);
+  $('legendFlow').textContent = s.flowMax ? `∝ √flow · max ${s.flowMax.toFixed(1)} kg/s` : 'n/a';
 }
 
 // "system flow": deterministic rule-based schematic (waterside → airside →
@@ -334,7 +423,10 @@ function showVertex(n) {
   if (d.isGroup) { clearPanel(); return; }
   const v = graph.vertices[d.id];
   if (!v) { clearPanel(); return; }
-  if (v.type === 'ZONE') selectZone(v.name);
+  if (v.type === 'ZONE') {
+    selectZone(v.name);
+    if (!choosePlaybackZone(v.name) && v.zoneNode) choosePlaybackNode(v.zoneNode);
+  }
   const nodeNames = [...new Set(v.pairs.flatMap(p => [p.inlet, p.outlet]).filter(Boolean))];
   if (v.zoneNode) nodeNames.push(v.zoneNode);
   let html = `<h2>${esc(v.name)}</h2><div class="type">${esc(v.type)}</div><table>`;
@@ -361,7 +453,8 @@ function showZoneGeometry(zoneName) {
   html += `<tr><td>bounds</td><td>${formatBounds(zone.bounds)}</td></tr>`;
   if (graphZone && graphZone.zoneNode)
     html += `<tr><td>zone node</td><td>${nodeInfoRow(graphZone.zoneNode)}</td></tr>`;
-  if (graphZone && graphZone.zoneNode) choosePlaybackNode(graphZone.zoneNode);
+  if (!choosePlaybackZone(zoneName) && graphZone && graphZone.zoneNode)
+    choosePlaybackNode(graphZone.zoneNode);
   html += '</table>';
   if (graphZone) {
     const nodeNames = [...new Set(graphZone.pairs.flatMap(p => [p.inlet, p.outlet]).filter(Boolean))];
@@ -406,6 +499,19 @@ function choosePlaybackNode(nodeName) {
   updateChart();
 }
 
+function choosePlaybackZone(zoneName) {
+  const entry = playbackZonesUpper && playbackZonesUpper.get(String(zoneName).toUpperCase());
+  if (!entry) return false;
+  selectedPlaybackNode = `zone:${entry.key}`;
+  $('playbackNode').value = selectedPlaybackNode;
+  if (!entry.series[selectedPlaybackVariable]) {
+    selectedPlaybackVariable = 'temperature';
+    $('playbackVariable').value = 'temperature';
+  }
+  updateChart();
+  return true;
+}
+
 function clearPanel() {
   $('panel').innerHTML = '<span class="empty">Nothing selected.</span>';
 }
@@ -416,6 +522,8 @@ function updateChart() {
   selectedPlaybackVariable = $('playbackVariable').value || selectedPlaybackVariable;
   selectedTimeIndex = Number($('timeSlider').value) || 0;
   const time = playback.times && playback.times[selectedTimeIndex];
+  applyPlaybackToGraph();
+  updateZoneHighlights();
   const series = getSelectedSeries();
   if (!series) {
     $('chartEmpty').style.display = 'flex';
@@ -427,44 +535,42 @@ function updateChart() {
   $('chartEmpty').style.display = 'none';
   $('chartCanvas').style.display = 'block';
   $('timeReadout').textContent = `${time ? time.label : ''} ${value == null ? '' : formatValue(value, series.units)}`;
-  applyPlaybackToGraph();
   drawChart();
 }
 
+// Edge color = node temp, edge width = mass flow, zone box fill = zone mean
+// air temp — all on global (whole-run) scales so colors mean the same thing
+// at every timestep during playback.
 function applyPlaybackToGraph() {
   if (!cy || !playback || !playback.nodes) return;
-  const edgeData = [];
-  cy.edges().forEach(edge => {
-    const nodeName = String(edge.data('label') || '').split(' ⇒ ')[0];
-    const node = playback.nodes[nodeName];
-    const temp = node && node.temperature && node.temperature.values[selectedTimeIndex];
-    const flow = node && node.massFlow && node.massFlow.values[selectedTimeIndex];
-    if (Number.isFinite(temp) || Number.isFinite(flow)) {
-      edgeData.push({ edge, temp, flow });
-    }
-  });
-  const temps = edgeData.map(d => d.temp).filter(Number.isFinite);
-  const flows = edgeData.map(d => d.flow).filter(Number.isFinite);
-  const tempMin = temps.length ? Math.min(...temps) : null;
-  const tempMax = temps.length ? Math.max(...temps) : null;
-  const flowMax = flows.length ? Math.max(...flows) : null;
-
+  const s = playbackStats || {};
   cy.batch(() => {
     cy.edges().forEach(edge => {
-      edge.removeClass('playbackEdge');
-      edge.style({ width: '', 'line-color': '', 'target-arrow-color': '', opacity: '' });
+      const nodeName = String(edge.data('label') || '').split(' ⇒ ')[0];
+      const node = playback.nodes[nodeName];
+      const temp = node && node.temperature && node.temperature.values[selectedTimeIndex];
+      const flow = node && node.massFlow && node.massFlow.values[selectedTimeIndex];
+      if (Number.isFinite(temp) || Number.isFinite(flow)) {
+        const color = Number.isFinite(temp) ? colorForTemperature(temp, s.tempMin, s.tempMax) : '#777';
+        // sqrt: terminal-branch flows are tiny next to main duct/header flows
+        const width = Number.isFinite(flow) && s.flowMax > 0
+          ? 1.2 + Math.sqrt(Math.max(0, flow) / s.flowMax) * 6
+          : 2;
+        edge.style({ width, 'line-color': color, 'target-arrow-color': color, opacity: 0.95 });
+      } else {
+        edge.style({ width: '', 'line-color': '', 'target-arrow-color': '', opacity: '' });
+      }
     });
-    for (const item of edgeData) {
-      const color = Number.isFinite(item.temp) ? colorForTemperature(item.temp, tempMin, tempMax) : '#777';
-      const width = Number.isFinite(item.flow) && flowMax > 0 ? 1.5 + (item.flow / flowMax) * 6 : 2;
-      item.edge.addClass('playbackEdge');
-      item.edge.style({
-        width,
-        'line-color': color,
-        'target-arrow-color': color,
-        opacity: 0.95
-      });
-    }
+    cy.nodes('[?isZone]').forEach(zoneBox => {
+      const zoneName = String(zoneBox.data('id') || '').split('|')[1] || zoneBox.data('label');
+      const series = zoneSeriesFor(zoneName);
+      const temp = series && series.temperature && series.temperature.values[selectedTimeIndex];
+      if (Number.isFinite(temp)) {
+        zoneBox.style({ 'background-color': colorForTemperature(temp, s.zoneMin, s.zoneMax) });
+      } else {
+        zoneBox.style({ 'background-color': '' });
+      }
+    });
   });
 }
 
@@ -494,10 +600,19 @@ function hslToHex(h, s, l) {
 }
 
 function getSelectedSeries() {
-  return playback &&
-    playback.nodes &&
+  if (!playback || !selectedPlaybackNode) return null;
+  if (String(selectedPlaybackNode).startsWith('zone:')) {
+    const series = zoneSeriesFor(selectedPlaybackNode.slice(5));
+    if (!series) return null;
+    return series[selectedPlaybackVariable] || series.temperature || null;
+  }
+  return playback.nodes &&
     playback.nodes[selectedPlaybackNode] &&
     playback.nodes[selectedPlaybackNode][selectedPlaybackVariable];
+}
+
+function selectedSeriesLabel() {
+  return String(selectedPlaybackNode || '').replace(/^zone:/, 'zone · ');
 }
 
 function drawChart() {
@@ -538,7 +653,7 @@ function drawChart() {
   ctx.strokeRect(pad.left, pad.top, plotW, plotH);
   ctx.fillStyle = '#555';
   ctx.font = '12px system-ui, sans-serif';
-  ctx.fillText(`${selectedPlaybackNode} · ${selectedPlaybackVariable} (${series.units || ''})`, pad.left, 16);
+  ctx.fillText(`${selectedSeriesLabel()} · ${selectedPlaybackVariable} (${series.units || ''})`, pad.left, 16);
   ctx.fillText(formatValue(max, series.units), 6, pad.top + 4);
   ctx.fillText(formatValue(min, series.units), 6, pad.top + plotH);
 
@@ -760,13 +875,27 @@ function pickThreeZone(event) {
   if (hits.length) showZoneGeometry(hits[0].object.userData.zoneName);
 }
 
+// Selected zone stays red; otherwise surfaces take the zone-temp heatmap
+// color when playback data is loaded, falling back to the static palette.
 function updateZoneHighlights() {
   if (!threeView) return;
+  const s = playbackStats || {};
   for (const child of threeView.zoneGroup.children) {
     if (!child.material || !child.userData.zoneName) continue;
-    const selected = child.userData.zoneName === selectedZoneName;
-    child.material.color.setHex(selected ? 0xd64545 : child.userData.baseColor);
-    child.material.opacity = selected ? 0.82 : 0.46;
+    if (child.userData.zoneName === selectedZoneName) {
+      child.material.color.setHex(0xd64545);
+      child.material.opacity = 0.82;
+      continue;
+    }
+    const series = zoneSeriesFor(child.userData.zoneName);
+    const temp = series && series.temperature && series.temperature.values[selectedTimeIndex];
+    if (Number.isFinite(temp)) {
+      child.material.color.set(colorForTemperature(temp, s.zoneMin, s.zoneMax));
+      child.material.opacity = 0.62;
+    } else {
+      child.material.color.setHex(child.userData.baseColor);
+      child.material.opacity = 0.46;
+    }
   }
   renderThree();
 }
@@ -803,6 +932,22 @@ $('viewMode').addEventListener('change', updateViewVisibility);
 $('playbackNode').addEventListener('change', updateChart);
 $('playbackVariable').addEventListener('change', updateChart);
 $('timeSlider').addEventListener('input', updateChart);
+$('playToggle').addEventListener('click', () => setPlaying(!playTimer));
+$('playSpeed').addEventListener('change', () => { if (playTimer) setPlaying(true); });
+
+function setPlaying(on) {
+  if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  if (on && playback && (playback.times || []).length > 1) {
+    playTimer = setInterval(stepTime, 1000 / Number($('playSpeed').value));
+  }
+  $('playToggle').textContent = playTimer ? '⏸' : '▶';
+}
+
+function stepTime() {
+  const slider = $('timeSlider');
+  slider.value = String((Number(slider.value) + 1) % (Number(slider.max) + 1));
+  updateChart();
+}
 $('fit').addEventListener('click', () => {
   if (cy && $('cy').style.display !== 'none') cy.fit(undefined, 30);
   if (geometry && $('zone3d').style.display !== 'none') { fitThreeCamera(); renderThree(); }
@@ -852,13 +997,24 @@ const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
 const hashView = hashParams.get('view');
 if (hashView && [...$('viewMode').options].some(o => o.value === hashView)) {
   $('viewMode').value = hashView;
+  viewModePinned = true;
 }
 for (const [key, load] of [['bnd', loadText], ['geometry', loadGeometry], ['data', loadPlayback]]) {
   const url = hashParams.get(key);
   if (!url) continue;
   fetch(url)
     .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
-    .then(t => load(decodeURIComponent(url.split('/').pop() || url), t))
+    .then(t => {
+      load(decodeURIComponent(url.split('/').pop() || url), t);
+      if (key === 'data') {
+        const timeIdx = Number(hashParams.get('t'));
+        if (Number.isFinite(timeIdx) && timeIdx > 0) {
+          $('timeSlider').value = String(timeIdx);
+          updateChart();
+        }
+        if (hashParams.get('play')) setPlaying(true);
+      }
+    })
     .catch(error => { $('drop').textContent = `${key}=${url}: ${error.message}`; });
 }
 </script>

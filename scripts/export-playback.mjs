@@ -5,8 +5,9 @@ import path from 'path';
 import { spawnSync } from 'child_process';
 
 const VARIABLE_MAP = {
-  'System Node Temperature': 'temperature',
-  'System Node Mass Flow Rate': 'massFlow'
+  'System Node Temperature': { bucket: 'nodes', slot: 'temperature' },
+  'System Node Mass Flow Rate': { bucket: 'nodes', slot: 'massFlow' },
+  'Zone Mean Air Temperature': { bucket: 'zones', slot: 'temperature' }
 };
 
 function usage() {
@@ -28,6 +29,8 @@ function parseArgs(argv) {
       args.out = argv[++i];
     } else if (arg === '--frequency') {
       args.frequency = argv[++i];
+    } else if (arg === '--chunk') {
+      args.chunk = Number(argv[++i]);
     } else if (arg === '--help' || arg === '-h') {
       usage();
       process.exit(0);
@@ -63,7 +66,7 @@ function exportPlayback(sqlFile, options = {}) {
     `select d.ReportDataDictionaryIndex as idx, d.KeyValue as keyValue, d.Name as name, ` +
       `d.ReportingFrequency as frequency, d.Units as units ` +
       `from ReportDataDictionary d ` +
-      `where d.Name in ('System Node Temperature','System Node Mass Flow Rate')${frequencyFilter} ` +
+      `where d.Name in (${Object.keys(VARIABLE_MAP).map(sqlString).join(',')})${frequencyFilter} ` +
       `order by d.KeyValue, d.Name, d.ReportDataDictionaryIndex`
   );
 
@@ -89,35 +92,42 @@ function exportPlayback(sqlFile, options = {}) {
       ...row,
       label: timeLabel(row)
     })),
-    nodes: {}
+    nodes: {},
+    zones: {}
   };
 
   if (dictionaryIds.length === 0) return output;
 
-  const rows = sqliteJson(
-    sqlFile,
-    `select r.TimeIndex as timeIndex, r.ReportDataDictionaryIndex as idx, r.Value as value ` +
-      `from ReportData r where r.ReportDataDictionaryIndex in (${dictionaryIds.join(',')}) ` +
-      `order by r.ReportDataDictionaryIndex, r.TimeIndex`
-  );
   const dictById = new Map(dict.map(row => [row.idx, row]));
   for (const entry of dict) {
-    const slot = VARIABLE_MAP[entry.name];
-    if (!output.nodes[entry.keyValue]) output.nodes[entry.keyValue] = {};
-    output.nodes[entry.keyValue][slot] = {
+    const { bucket, slot } = VARIABLE_MAP[entry.name];
+    if (!output[bucket][entry.keyValue]) output[bucket][entry.keyValue] = {};
+    output[bucket][entry.keyValue][slot] = {
       units: entry.units || '',
       frequency: entry.frequency || '',
       values: Array(times.length).fill(null)
     };
   }
 
-  for (const row of rows) {
-    const entry = dictById.get(row.idx);
-    if (!entry) continue;
-    const slot = VARIABLE_MAP[entry.name];
-    const offset = timeIndex.get(row.timeIndex);
-    if (offset == null) continue;
-    output.nodes[entry.keyValue][slot].values[offset] = row.value;
+  // Query ReportData in dictionary-id batches: a large model's full result
+  // set as one sqlite3 -json call overflows spawnSync's buffer (ENOBUFS).
+  const chunkSize = Math.max(1, options.chunk || 50);
+  for (let start = 0; start < dictionaryIds.length; start += chunkSize) {
+    const batch = dictionaryIds.slice(start, start + chunkSize);
+    const rows = sqliteJson(
+      sqlFile,
+      `select r.TimeIndex as timeIndex, r.ReportDataDictionaryIndex as idx, r.Value as value ` +
+        `from ReportData r where r.ReportDataDictionaryIndex in (${batch.join(',')}) ` +
+        `order by r.ReportDataDictionaryIndex, r.TimeIndex`
+    );
+    for (const row of rows) {
+      const entry = dictById.get(row.idx);
+      if (!entry) continue;
+      const { bucket, slot } = VARIABLE_MAP[entry.name];
+      const offset = timeIndex.get(row.timeIndex);
+      if (offset == null) continue;
+      output[bucket][entry.keyValue][slot].values[offset] = row.value;
+    }
   }
 
   return output;
@@ -136,10 +146,11 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   const input = path.resolve(args.input);
   const out = path.resolve(args.out || input.replace(/\.sql$/i, '') + '.playback.json');
-  const playback = exportPlayback(input, { frequency: args.frequency });
+  const playback = exportPlayback(input, { frequency: args.frequency, chunk: args.chunk });
   fs.writeFileSync(out, `${JSON.stringify(playback)}\n`);
   console.log(
-    `wrote ${out} (${Object.keys(playback.nodes).length} nodes, ${playback.metadata.timeCount} timesteps)`
+    `wrote ${out} (${Object.keys(playback.nodes).length} nodes, ` +
+      `${Object.keys(playback.zones).length} zones, ${playback.metadata.timeCount} timesteps)`
   );
   if (playback.metadata.seriesCount === 0) {
     console.warn('warning: no System Node Temperature or System Node Mass Flow Rate series found');
