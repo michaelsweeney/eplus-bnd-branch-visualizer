@@ -878,6 +878,7 @@ function selectEdge(edge) {
 const MINI_COLORS = ['#e0a33b', '#4f9dd9', '#52b788', '#d96a6a'];
 let miniSeries = [];
 let miniCache = null;
+let miniPlot = null; // plot-rect padding so the marker tracks the axes
 let miniHidden = false;
 let miniKey = null;
 
@@ -889,13 +890,18 @@ function computeMiniSeries() {
     const series = node && node[slot];
     const key = `${name}|${slot}`;
     if (series && out.length < 4 && !out.some(s => s.key === key)) {
-      out.push({ key, label: `${name} · ${slot === 'massFlow' ? flowUnit() : tempUnit()}`, values: series.values });
+      out.push({
+        key,
+        kind: slot === 'massFlow' ? 'flow' : 'temp',
+        label: `${name} · ${slot === 'massFlow' ? flowUnit() : tempUnit()}`,
+        values: series.values
+      });
     }
   };
   if (selection.kind === 'zone') {
     const series = zoneSeriesFor(selection.zoneName);
     if (series && series.temperature) {
-      out.push({ key: `zone|${selection.zoneName}`, label: `${selection.zoneName} · zone ${tempUnit()}`, values: series.temperature.values });
+      out.push({ key: `zone|${selection.zoneName}`, kind: 'temp', label: `${selection.zoneName} · zone ${tempUnit()}`, values: series.temperature.values });
     }
     const zv = graphZoneVertexByName(selection.zoneName);
     if (zv) for (const p of zv.v.pairs) if (p.inlet) addNode(p.inlet);
@@ -937,7 +943,7 @@ function updateMiniChart() {
   if (key !== miniKey) { miniHidden = false; miniKey = key; }
   miniSeries = computeMiniSeries();
   const show = !miniHidden && miniSeries.length > 0;
-  $('miniChart').style.display = show ? 'block' : 'none';
+  $('miniChart').style.display = show ? 'flex' : 'none';
   if (!show) return;
   $('miniChartTitle').textContent = selection.title || selection.zoneName || '';
   $('miniLegend').innerHTML = miniSeries
@@ -959,23 +965,71 @@ function renderMiniCache() {
   miniCache.width = w;
   miniCache.height = h;
   const ctx = miniCache.getContext('2d');
-  miniSeries.forEach((series, i) => {
+
+  // shared scale per unit kind: temps on the left axis, flows (0-based)
+  // on the right axis — lines of the same kind are directly comparable
+  const ranges = { temp: null, flow: null };
+  for (const series of miniSeries) {
     let min = Infinity, max = -Infinity;
     for (const v of series.values) {
       if (!Number.isFinite(v)) continue;
       if (v < min) min = v;
       if (v > max) max = v;
     }
-    if (!(max > min)) { min -= 1; max += 1; }
+    if (!(max >= min)) continue;
+    const r = ranges[series.kind] || { min, max };
+    r.min = Math.min(r.min, min);
+    r.max = Math.max(r.max, max);
+    ranges[series.kind] = r;
+  }
+  if (ranges.flow) ranges.flow.min = Math.min(0, ranges.flow.min);
+  for (const r of Object.values(ranges)) {
+    if (r && !(r.max > r.min)) { r.min -= 1; r.max += 1; }
+  }
+
+  const hasTemp = !!ranges.temp;
+  const hasFlow = !!ranges.flow;
+  const padL = hasTemp ? 34 * dpr : 6 * dpr;
+  const padR = hasFlow ? 34 * dpr : 6 * dpr;
+  const padT = 4 * dpr;
+  const padB = 4 * dpr;
+  miniPlot = { l: padL, r: padR };
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  const ink = currentTheme === 'light' ? '#97a3b4' : '#4d5a6e';
+  const inkStrong = currentTheme === 'light' ? '#5d6b7e' : '#7c8aa0';
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.5;
+  ctx.strokeRect(padL, padT, plotW, plotH);
+  ctx.globalAlpha = 1;
+
+  ctx.font = `${9 * dpr}px 'IBM Plex Mono', monospace`;
+  ctx.fillStyle = inkStrong;
+  if (hasTemp) {
+    ctx.textAlign = 'right';
+    ctx.fillText(dispTemp(ranges.temp.max).toFixed(0), padL - 3 * dpr, padT + 8 * dpr);
+    ctx.fillText(dispTemp(ranges.temp.min).toFixed(0), padL - 3 * dpr, h - padB);
+  }
+  if (hasFlow) {
+    ctx.textAlign = 'left';
+    ctx.fillText(dispFlow(ranges.flow.max).toFixed(ranges.flow.max < 10 ? 1 : 0), w - padR + 3 * dpr, padT + 8 * dpr);
+    ctx.fillText(dispFlow(ranges.flow.min).toFixed(0), w - padR + 3 * dpr, h - padB);
+  }
+
+  miniSeries.forEach((series, i) => {
+    const r = ranges[series.kind];
+    if (!r) return;
     const n = series.values.length;
-    const stride = Math.max(1, Math.floor(n / w)); // ~1 sample per px
+    const stride = Math.max(1, Math.floor(n / plotW)); // ~1 sample per px
     ctx.beginPath();
     let started = false;
     for (let j = 0; j < n; j += stride) {
       const v = series.values[j];
       if (!Number.isFinite(v)) continue;
-      const x = (j / (n - 1)) * w;
-      const y = h - 3 - ((v - min) / (max - min)) * (h - 6);
+      const x = padL + (j / (n - 1)) * plotW;
+      const y = padT + plotH - ((v - r.min) / (r.max - r.min)) * plotH;
       if (!started) { ctx.moveTo(x, y); started = true; }
       else ctx.lineTo(x, y);
     }
@@ -984,6 +1038,7 @@ function renderMiniCache() {
     ctx.globalAlpha = 0.9;
     ctx.stroke();
   });
+  ctx.globalAlpha = 1;
 }
 
 function drawMiniChart() {
@@ -994,7 +1049,8 @@ function drawMiniChart() {
   ctx.drawImage(miniCache, 0, 0);
   const n = ((playback && playback.times) || []).length;
   if (n > 1) {
-    const x = (selectedTimeIndex / (n - 1)) * canvas.width;
+    const plot = miniPlot || { l: 0, r: 0 };
+    const x = plot.l + (selectedTimeIndex / (n - 1)) * (canvas.width - plot.l - plot.r);
     ctx.strokeStyle = currentTheme === 'light' ? '#d97c00' : '#ffc66b';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -1165,32 +1221,65 @@ function formatBounds(bounds) {
 
 /* ── layout ──────────────────────────────────────────────────── */
 
-// Corridor lanes in taxi modes: each water loop turns at its own distance
-// and attaches a few px off node center, so CHW/CW/HW runs sharing a
-// corridor draw as parallel lines. Inline styles; organic mode clears them.
-function applyEdgeLanes() {
+// Edge routing in taxi modes, two parts:
+//   1. corridor lanes — each water loop turns at its own distance, so
+//      CHW/CW/HW runs sharing a corridor draw as parallel lines;
+//   2. ports — a node's in-edges spread along its left side and
+//      out-edges along its right side (flow is left→right), ordered by
+//      the other endpoint's y so runs don't cross, and the node grows
+//      to fit its port count instead of funneling everything through
+//      one center point.
+// Inline styles; organic mode clears them.
+const PORT_SPACING = 6;
+
+function nodeBaseSize(node) {
+  if (node.data('isUnit')) return { w: 52, h: 40 };
+  if (node.data('isZone')) return { w: 34, h: 24 };
+  const type = String(node.data('type') || '');
+  if (type.startsWith('CONNECTOR') || type.startsWith('AIRLOOPHVAC:ZONESPLITTER') ||
+      type.startsWith('AIRLOOPHVAC:ZONEMIXER')) return { w: 18, h: 18 };
+  return { w: 26, h: 26 };
+}
+
+function applyEdgeRouting() {
   if (!cy || !graph) return;
-  const { lanes, count } = assignLoopLanes(graph.loopKind || {});
-  if (!count) return;
-  const center = (count - 1) / 2;
+  const { lanes } = assignLoopLanes(graph.loopKind || {});
   cy.batch(() => {
     cy.edges().forEach(edge => {
       if (edge.data('fluid') === 'Air') return;
       const loop = loopNameForGraphId(edge.data('source')) || loopNameForGraphId(edge.data('target'));
       const lane = lanes[loop];
-      if (lane == null) return;
-      const dy = Math.max(-8, Math.min(8, Math.round((lane - center) * 4)));
-      edge.style({
-        'taxi-turn': 34 + lane * 10,
-        'source-endpoint': `0 ${dy}`,
-        'target-endpoint': `0 ${dy}`
+      if (lane != null) edge.style('taxi-turn', 34 + lane * 10);
+    });
+    cy.nodes().forEach(node => {
+      if (node.data('isGroup')) return;
+      const ins = [];
+      const outs = [];
+      node.connectedEdges().forEach(e => {
+        if (e.data('target') === node.id()) ins.push(e);
+        else if (e.data('source') === node.id()) outs.push(e);
       });
+      const need = Math.max(ins.length, outs.length);
+      const base = nodeBaseSize(node);
+      const h = Math.max(base.h, need * PORT_SPACING + 8);
+      if (h > base.h) node.style('height', h);
+      const yOf = other => (other && other.nonempty() ? other.position('y') : 0);
+      const byOtherY = key => (a, b) =>
+        yOf(a[key]()) - yOf(b[key]()) || String(a.data('label')).localeCompare(String(b.data('label')));
+      ins.sort(byOtherY('source'));
+      outs.sort(byOtherY('target'));
+      ins.forEach((e, i) =>
+        e.style('target-endpoint', `${-base.w / 2}px ${Math.round((i - (ins.length - 1) / 2) * PORT_SPACING)}px`));
+      outs.forEach((e, i) =>
+        e.style('source-endpoint', `${base.w / 2}px ${Math.round((i - (outs.length - 1) / 2) * PORT_SPACING)}px`));
     });
   });
 }
 
-function clearEdgeLanes() {
-  if (cy) cy.edges().removeStyle('taxi-turn source-endpoint target-endpoint');
+function clearEdgeRouting() {
+  if (!cy) return;
+  cy.edges().removeStyle('taxi-turn source-endpoint target-endpoint');
+  cy.nodes().removeStyle('height');
 }
 
 function applyLayout() {
@@ -1222,7 +1311,7 @@ function applyLayout() {
       .selector('edge').style({ 'curve-style': 'taxi', 'taxi-direction': 'rightward',
                                 'taxi-turn': 40, 'taxi-turn-min-distance': 12 })
       .update();
-    applyEdgeLanes();
+    applyEdgeRouting();
     cy.fit(undefined, 40);
   } else if (mode === 'system') {
     // bands/columns already encode the grouping, so compounds are
@@ -1251,9 +1340,9 @@ function applyLayout() {
       .update();
     cy.layout({ name: 'preset', positions: n => posFor(n.id()),
                 animate: false, fit: true, padding: 30 }).run();
-    applyEdgeLanes();
+    applyEdgeRouting();
   } else {
-    clearEdgeLanes();
+    clearEdgeRouting();
     cy.batch(() => {
       cy.nodes('[?isGroup], [?isContainer]').style('display', 'element');
       cy.nodes().forEach(n => {
@@ -1565,6 +1654,65 @@ $('miniChartClose').addEventListener('click', () => {
   miniHidden = true;
   $('miniChart').style.display = 'none';
 });
+
+let miniMinimized = false;
+$('miniChartMin').addEventListener('click', () => {
+  miniMinimized = !miniMinimized;
+  $('miniChart').classList.toggle('minimized', miniMinimized);
+  $('miniChartMin').textContent = miniMinimized ? '▢' : '–';
+  if (!miniMinimized && miniSeries.length) { renderMiniCache(); drawMiniChart(); }
+});
+
+$('miniChartMax').addEventListener('click', () => {
+  const mc = $('miniChart');
+  const panes = $('panes').getBoundingClientRect();
+  if (mc.dataset.big === '1') {
+    mc.style.width = '340px';
+    mc.style.height = '178px';
+    mc.dataset.big = '';
+  } else {
+    mc.style.width = `${Math.round(panes.width * 0.6)}px`;
+    mc.style.height = `${Math.round(panes.height * 0.55)}px`;
+    mc.dataset.big = '1';
+  }
+});
+
+// drag by the head bar; switches from corner-anchored to explicit x/y
+$('miniChartHead').addEventListener('pointerdown', e => {
+  if (e.target.tagName === 'BUTTON') return;
+  e.preventDefault();
+  const mc = $('miniChart');
+  const head = $('miniChartHead');
+  const panes = $('panes').getBoundingClientRect();
+  const rect = mc.getBoundingClientRect();
+  const grabX = e.clientX - rect.left;
+  const grabY = e.clientY - rect.top;
+  head.setPointerCapture(e.pointerId);
+  const move = ev => {
+    const x = Math.max(0, Math.min(panes.width - rect.width, ev.clientX - panes.left - grabX));
+    const y = Math.max(0, Math.min(panes.height - 32, ev.clientY - panes.top - grabY));
+    mc.style.left = `${x}px`;
+    mc.style.top = `${y}px`;
+    mc.style.right = 'auto';
+    mc.style.bottom = 'auto';
+  };
+  const up = () => {
+    head.removeEventListener('pointermove', move);
+    head.removeEventListener('pointerup', up);
+  };
+  head.addEventListener('pointermove', move);
+  head.addEventListener('pointerup', up);
+});
+
+// re-render the cached plot when the panel is resized (native handle or
+// maximize) — canvas pixels track the new box
+new ResizeObserver(() => {
+  const mc = $('miniChart');
+  if (mc.style.display !== 'none' && !miniMinimized && miniSeries.length) {
+    renderMiniCache();
+    drawMiniChart();
+  }
+}).observe($('miniChart'));
 
 for (const btn of document.querySelectorAll('#themeToggle button')) {
   btn.addEventListener('click', () => {
