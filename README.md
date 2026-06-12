@@ -14,34 +14,30 @@ worked out. See `PROMPT.md` for the original agent kickoff brief.
 
 ## Local prototype
 
-The topology prototype has been copied into this repo for local testing:
+`index.html` is a single-page dark-UI explorer (UX iteration started
+2026-06-12; the Large Office demo set auto-loads when served over
+http(s)):
 
-- Open `index.html` directly, or serve the directory with a local static
-  server and drop an EnergyPlus `.bnd` file onto the page.
-- Drop an epJSON model, or use the Geometry file picker, to render
-  `BuildingSurface:Detailed` zone surfaces in the 3D zones view. Clicking
-  a graph zone or 3D surface links the selection when zone names match.
-- Export a prepped `eplusout.sql` to playback JSON and drop it into the
-  Data picker to chart node temperature or mass flow. Clicking a topology
-  edge selects the matching node series when present.
-- With playback loaded, the time slider and ▶ autoplay drive all views
-  off one time index: topology edges color by node temperature and width
-  by √mass-flow, graph zone boxes and 3D zone surfaces heatmap by zone
-  mean air temperature, and the chart marker tracks. Color scales are
-  global to the run (node temps percentile-clipped — stagnant coil
-  outlet nodes report physically absurd temperatures at zero flow) and
-  shown in the legend. Clicking a zone in either view charts its zone
-  temperature series; topology↔3D selection linking stays by zone name.
-- Run `npm test` to exercise the parser, graph builder, deterministic
-  layout, epJSON geometry reader, and epJSON prep helper with Node's
-  built-in test runner.
-- Run `npm run collect:samples` to regenerate the optional `samples.js`
-  dropdown from local EnergyPlus output folders. Missing sample sources
-  are skipped.
-- When served over http(s), hash params auto-load files and select the
-  view — shareable demo links and the hook for headless smoke tests:
-  `index.html#bnd=<url>&geometry=<url>&data=<url>&view=<topology|zones|chart|split>&t=<timestep>&play=1`.
-  (`#sample=N` still works for embedded samples on `file://`.)
+- **Split panes**: system graph (Cytoscape; system-flow or organic
+  layout, loop filter) and 3D zones (Three.js), with an inspector
+  sidebar and a bottom transport bar (play/pause, speed, annual scrub
+  with month ruler; space / ←→ keyboard control).
+- **Metric toggle** (Temperature | Flow) switches the edge color
+  encoding; edge width is always √mass-flow; zone boxes and 3D surfaces
+  heatmap by zone mean air temperature. Color scales are global to the
+  run (node temps percentile-clipped — stagnant coil outlet nodes report
+  physically absurd temperatures at zero flow); legend in the top bar.
+- **Linked selection**: clicking a zone in either pane selects it in
+  both, highlights its connected HVAC nodes/edges amber, and shows its
+  epJSON object + geometry + node connections in the inspector.
+  Clicking a component highlights its connected objects and its served
+  zone (if any) in both panes; clicking an edge shows the fluid node.
+- **Drag-drop** any `.bnd`, epJSON, or playback JSON to replace the
+  loaded set.
+- Run `npm test` for the parser/graph/layout/prep/export suites.
+- Hash params (http(s)): `#bnd=<url>&geometry=<url>&data=<url>` override
+  the default dataset; `#t=<index>` positions the scrub, `#play=1`
+  starts playback, `#sel=<zone name>` applies a zone selection.
 
 ## End-to-end demo (validated 2026-06-12)
 
