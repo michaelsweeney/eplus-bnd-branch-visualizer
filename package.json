@@ -1,0 +1,13 @@
+{
+  "name": "eplus-bnd-branch-visualizer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local EnergyPlus .bnd topology visualizer and output prep helpers.",
+  "scripts": {
+    "test": "node --test",
+    "collect:samples": "node scripts/collect-samples.mjs",
+    "prep": "node scripts/prep-epjson.mjs",
+    "export:playback": "node scripts/export-playback.mjs"
+  },
+  "license": "MIT"
+}
