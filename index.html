@@ -5,7 +5,7 @@
 <title>BND·VIZ — EnergyPlus system explorer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/layout-base@2.0.1/layout-base.js"></script>
 <script src="https://unpkg.com/cose-base@2.2.0/cose-base.js"></script>
 <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
@@ -15,6 +15,7 @@
 <script src="src/buildgraph.js"></script>
 <script src="src/layoutbnd.js"></script>
 <script src="src/parsegeometry.js"></script>
+<script src="src/units.js"></script>
 <style>
   :root {
     --bg: #0b0e13;
@@ -72,6 +73,7 @@
   }
   #metric button + button { border-left: 1px solid var(--hairline-2); }
   #metric button.on { background: #1d2736; color: #fff; }
+  #metric button.on[data-metric="system"] { color: var(--accent); }
   #metric button.on[data-metric="temperature"] { color: var(--hot); }
   #metric button.on[data-metric="massFlow"] { color: var(--cold); }
 
@@ -126,13 +128,32 @@
     pointer-events: none;
   }
 
+  /* ── splitters & pane collapse ───────────────────────────── */
+  .splitter {
+    flex: none; width: 5px; cursor: col-resize; background: transparent;
+    transition: background 0.15s; z-index: 6;
+  }
+  .splitter:hover, .splitter.dragging { background: var(--accent-dim); }
+  .pane.closed { flex: 0 0 30px !important; min-width: 30px; overflow: hidden; }
+  .pane.closed > :not(.paneHead) { display: none !important; }
+  .pane.closed .paneHead { height: 100%; flex-direction: column; padding: 10px 0; gap: 8px; border-bottom: 0; }
+  .pane.closed .paneTitle { writing-mode: vertical-rl; letter-spacing: 0.22em; }
+  .pane.closed .tools { margin-left: 0; margin-top: auto; flex-direction: column; }
+  .pane.closed .tools > :not(.paneToggle) { display: none; }
+  #inspector.closed { width: 30px !important; min-width: 30px; overflow: hidden; }
+  #inspector.closed #inspectorBody { display: none; }
+  #inspector.closed #inspectorHead { height: 100%; flex-direction: column; padding: 10px 0; gap: 8px; border-bottom: 0; }
+  #inspector.closed #inspectorHead .paneTitle { writing-mode: vertical-rl; letter-spacing: 0.22em; }
+  #inspector.closed #inspectorHead .tools { margin-left: 0; margin-top: auto; }
+
   /* ── inspector sidebar ───────────────────────────────────── */
   #inspector {
     width: 318px; flex: none; border-left: 1px solid var(--hairline);
-    background: var(--panel-2); overflow-y: auto; padding: 16px 16px 24px;
+    background: var(--panel-2); display: flex; flex-direction: column;
   }
-  #inspector::-webkit-scrollbar { width: 8px; }
-  #inspector::-webkit-scrollbar-thumb { background: var(--hairline-2); border-radius: 4px; }
+  #inspectorBody { flex: 1; overflow-y: auto; padding: 16px 16px 24px; }
+  #inspectorBody::-webkit-scrollbar { width: 8px; }
+  #inspectorBody::-webkit-scrollbar-thumb { background: var(--hairline-2); border-radius: 4px; }
   #inspector h2 {
     margin: 0 0 4px; font: 600 15px/1.25 var(--sans); color: #eef3fb; word-break: break-word;
   }
@@ -212,16 +233,60 @@
   #dropToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   #loadStatus { font: 400 10px/1.5 var(--mono); color: var(--ink-faint); white-space: nowrap; }
+
+  /* ── 8-bit theme ─────────────────────────────────────────── */
+  body.mario {
+    --bg: #5c94fc;            /* NES sky */
+    --panel: #5c94fc;
+    --panel-2: #3a5fc8;
+    --hairline: #1a2a6a;
+    --hairline-2: #273c8e;
+    --ink: #ffffff;
+    --ink-dim: #cfe0ff;
+    --ink-faint: #9ab4f0;
+    --accent: #fbd000;        /* coin gold */
+    --accent-dim: #b89200;
+  }
+  body.mario #topbar { background: #c84c0c; border-bottom: 3px solid #7c2d05; }
+  body.mario #transport { background: #c84c0c; border-top: 3px solid #7c2d05; }
+  body.mario #wordmark, body.mario .paneTitle, body.mario .chip, body.mario #readout {
+    font-family: 'Press Start 2P', var(--mono); font-size: 9px; line-height: 1.6;
+  }
+  body.mario #wordmark { font-size: 11px; color: #fff; text-shadow: 2px 2px 0 #7c2d05; }
+  body.mario #wordmark small { font-size: 6px; color: #ffd9b0; }
+  body.mario #metric button.on { background: #fbd000; color: #7c2d05 !important; }
+  body.mario #playBtn { background: #e52521; color: #fff; border-color: #7c2d05; box-shadow: 0 3px 0 #7c2d05; }
+  body.mario #timeSlider::-webkit-slider-thumb { background: #e52521; box-shadow: 0 0 0 2px #fff; }
+  body.mario #inspector { background: #fff8e8; }
+  body.mario #inspector, body.mario #inspector td { color: #4a3000; }
+  body.mario #inspector h2 { color: #7c2d05; }
+  body.mario #inspector td:first-child { color: #a07030; }
+  body.mario #inspector .kindChip { color: #c84c0c; border-color: #c84c0c; }
+  body.mario #inspector h3 { color: #a07030; border-color: #e8d8b8; }
+  body.mario #inspector .conn { background: #fff; border-color: #e8d8b8; color: #4a3000; }
+  body.mario #inspector .conn .ct { color: #c84c0c; }
+  body.mario #inspector .conn .obj { color: #a07030; }
 </style>
 </head>
 <body>
 
 <div id="topbar">
   <div id="wordmark">BND<em>·</em>VIZ<small>ENERGYPLUS SYSTEM EXPLORER</small></div>
+  <select id="datasetPick" title="demo dataset">
+    <option value="large-office">Large Office VAV</option>
+    <option value="hospital">Hospital</option>
+    <option value="small-office">Small Office PSZ</option>
+  </select>
   <div class="chip" id="datasetChip">no dataset</div>
   <div id="metric">
-    <button data-metric="temperature" class="on">Temperature</button>
+    <button data-metric="system" class="on">System</button>
+    <button data-metric="temperature">Temperature</button>
     <button data-metric="massFlow">Flow</button>
+  </div>
+  <div id="metric" style="margin-left:-6px"></div>
+  <div id="themeToggle" class="" style="display:flex;border:1px solid var(--hairline-2);border-radius:4px;overflow:hidden">
+    <button data-theme="pro" class="on" style="appearance:none;border:0;background:var(--panel-2);color:var(--ink-dim);font:600 11px/1 var(--sans);letter-spacing:0.08em;padding:8px 12px;cursor:pointer">PRO</button>
+    <button data-theme="mario" style="appearance:none;border:0;border-left:1px solid var(--hairline-2);background:var(--panel-2);color:var(--ink-dim);font:600 11px/1 var(--sans);letter-spacing:0.08em;padding:8px 12px;cursor:pointer">8-BIT</button>
   </div>
   <div id="spacer"></div>
   <div id="legend">
@@ -241,25 +306,40 @@
           <select id="layoutMode" title="layout">
             <option value="system">system flow</option>
             <option value="organic">organic</option>
+            <option value="units">unit overview</option>
           </select>
+          <button class="toolBtn" id="collapseAll" title="collapse every unit (AHUs, plant sides, distribution, zone equipment)">⊟ units</button>
+          <button class="toolBtn" id="expandAll" title="expand every unit">⊞ units</button>
           <button class="toolBtn" id="fit">fit</button>
+          <button class="toolBtn paneToggle" data-target="graphPane">—</button>
         </div>
       </div>
       <div id="cy"></div>
       <div id="graphEmpty">drop an EnergyPlus .bnd file</div>
     </div>
+    <div class="splitter" id="splitPanes"></div>
     <div class="pane" id="zonePane">
       <div class="paneHead">
         <span class="paneTitle">ZONES 3D</span>
         <div class="tools">
           <button class="toolBtn" id="resetCam">reset view</button>
+          <button class="toolBtn paneToggle" data-target="zonePane">—</button>
         </div>
       </div>
       <div id="zone3d"><div id="zone3dEmpty">drop an epJSON model</div></div>
     </div>
   </div>
+  <div class="splitter" id="splitInspector"></div>
   <div id="inspector">
-    <span class="empty">Nothing selected.</span>
+    <div id="inspectorHead" class="paneHead">
+      <span class="paneTitle">INSPECTOR</span>
+      <div class="tools">
+        <button class="toolBtn paneToggle" data-target="inspector">—</button>
+      </div>
+    </div>
+    <div id="inspectorBody">
+      <span class="empty">Nothing selected.</span>
+    </div>
   </div>
 </div>
 
@@ -293,8 +373,13 @@ let playback = null;
 let playbackStats = null;
 let playbackZonesUpper = null; // UPPER(zone) -> { key, series } (SQL uppercases keys)
 let playTimer = null;
+let dashRaf = null;
 let selectedTimeIndex = 0;
-let currentMetric = 'temperature';
+let currentMetric = 'system';
+let loopFunctionColors = null; // loopName -> hex, from classifyLoops()
+let currentTheme = 'pro';
+let units = null;             // { units, unitOf } from assignUnits
+let collapsedSet = new Set(); // unit ids currently collapsed
 // one selection drives every view: {kind:'zone'|'vertex'|'edge', ...}
 let selection = null;
 
@@ -316,6 +401,8 @@ function maybeApplyHashSelection() {
 function loadText(name, text) {
   model = parseBnd(text);
   graph = buildGraph(model);
+  units = assignUnits(model, graph);
+  collapsedSet = new Set();
   for (const el of graph.elements)
     if (!el.data.source) el.data.origParent = el.data.parent || null;
   if (graph.elements.length === 0) {
@@ -332,65 +419,224 @@ function loadText(name, text) {
   $('loopFilter').innerHTML = '<option value="">all loops</option>' +
     loops.map(l => `<option>${esc(l)}</option>`).join('');
 
-  if (cy) cy.destroy();
-  cy = cytoscape({
-    container: $('cy'),
-    elements: graph.elements,
-    wheelSensitivity: 0.2,
-    style: [
-      { selector: 'node', style: {
-          label: 'data(label)', 'font-size': 9, width: 22, height: 22,
-          'font-family': 'IBM Plex Mono, monospace',
-          'text-valign': 'bottom', 'text-margin-y': 3, 'text-wrap': 'wrap', 'text-max-width': 110,
-          color: '#7c8aa0',
-          'background-color': '#33415a', 'border-width': 1, 'border-color': '#4d6076'
-      }},
-      { selector: 'node[?isZone]', style: {
-          shape: 'round-rectangle', 'background-color': '#5a4a2e', 'border-color': '#8a6a35',
-          width: 34, height: 24, color: '#a99263'
-      }},
-      { selector: 'node[type^="CONNECTOR"], node[type^="AIRLOOPHVAC:ZONE"]', style: {
-          shape: 'diamond', 'background-color': '#41395f', 'border-color': '#675a92'
-      }},
-      { selector: ':parent', style: {
-          'background-color': '#ffffff', 'background-opacity': 0.02,
-          'border-color': '#2b3546', 'border-width': 1,
-          label: 'data(label)', 'font-size': 10, 'font-weight': 'bold',
-          'font-family': 'IBM Plex Mono, monospace',
-          'text-valign': 'top', 'text-margin-y': -4, color: '#56647c'
-      }},
-      { selector: 'edge', style: {
-          width: 1.4, 'line-color': '#39455a', 'target-arrow-color': '#39455a',
-          'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'arrow-scale': 0.7,
-          opacity: 0.75
-      }},
-      { selector: 'edge[fluid="Air"]', style: { 'line-color': '#3a7a5c', 'target-arrow-color': '#3a7a5c' } },
-      { selector: 'edge[fluid="Water"]', style: { 'line-color': '#3d6390', 'target-arrow-color': '#3d6390' } },
-      { selector: 'edge[kind="crossover"]', style: { 'line-style': 'dashed', 'line-color': '#7c4a4a', 'target-arrow-color': '#7c4a4a' } },
-      { selector: '.faded', style: { opacity: 0.08, 'text-opacity': 0.08 } },
-      { selector: '.linked', style: {
-          'underlay-color': '#ffc66b', 'underlay-opacity': 0.18, 'underlay-padding': 5,
-          'z-index': 8
-      }},
-      { selector: 'node.linked', style: { 'border-color': '#caa45c', color: '#d9c79a' } },
-      { selector: '.sel', style: {
-          'underlay-color': '#ffc66b', 'underlay-opacity': 0.34, 'underlay-padding': 7,
-          'z-index': 9
-      }},
-      { selector: 'node.sel', style: { 'border-width': 2, 'border-color': '#ffc66b', color: '#ffe2ae' } },
-      { selector: 'edge.sel', style: { 'line-color': '#ffc66b', 'target-arrow-color': '#ffc66b', opacity: 1 } },
-      { selector: ':selected', style: { 'overlay-opacity': 0 } }
-    ],
-    layout: { name: 'preset' }
-  });
-
-  cy.on('tap', 'node', e => onGraphNodeTap(e.target));
-  cy.on('tap', 'edge', e => onGraphEdgeTap(e.target));
-  cy.on('tap', e => { if (e.target === cy) clearSelection(); });
+  classifyLoops();
+  createCy(buildDisplayElements());
   applyLayout();
   updateDatasetChip(name);
   applyPlaybackToGraph();
   maybeApplyHashSelection();
+}
+
+function createCy(elements) {
+  if (cy) cy.destroy();
+  cy = cytoscape({
+    container: $('cy'),
+    elements,
+    wheelSensitivity: 0.2,
+    style: buildCyStyle(currentTheme),
+    layout: { name: 'preset' }
+  });
+  cy.on('tap', 'node', e => onGraphNodeTap(e.target));
+  cy.on('tap', 'edge', e => onGraphEdgeTap(e.target));
+  cy.on('tap', e => { if (e.target === cy) clearSelection(); });
+  cy.on('dbltap', 'node', e => onGraphNodeDblTap(e.target));
+}
+
+/* ── component icons ─────────────────────────────────────────── */
+// Type-prefix -> schematic glyph. Pure object-class rendering, no
+// inference; unknown prefixes keep the plain block.
+const ICON_SHAPES = {
+  fan: '<circle cx="12" cy="12" r="9"/><path d="M12 12 Q16 6 20 10 M12 12 Q10 19 5 16 M12 12 Q6 8 9 4"/>',
+  coil: '<rect x="3" y="5" width="18" height="14"/><path d="M9 5 7 19 M15 5 13 19 M21 5 19 19"/>',
+  pump: '<circle cx="12" cy="12" r="9"/><path d="M9 7l8 5-8 5z"/>',
+  chiller: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="8.5" cy="12" r="2.8"/><circle cx="15.5" cy="12" r="2.8"/>',
+  boiler: '<rect x="5" y="4" width="14" height="16" rx="2"/><path d="M12 8c2.5 3.5-2.5 3.5 0 7"/>',
+  tower: '<path d="M7 20 L8.5 9 H15.5 L17 20 Z"/><circle cx="12" cy="6" r="2.6"/>',
+  terminal: '<rect x="3" y="7" width="18" height="10"/><path d="M7 16l5-8"/>',
+  humidifier: '<path d="M12 4c4 5 6 7.5 6 10.5a6 6 0 1 1-12 0C6 11.5 8 9 12 4z"/>',
+  oa: '<rect x="3" y="5" width="18" height="14"/><path d="M6 9h12M6 12h12M6 15h12"/>',
+  hx: '<rect x="3" y="5" width="18" height="14"/><path d="M7 9l10 6M7 15l10-6"/>',
+  plenum: '<rect x="3" y="9" width="18" height="6"/><path d="M7 9V5M12 9V5M17 9V5"/>',
+  pipe: '<path d="M3 12h18M7 9v6M17 9v6"/>',
+  unitary: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="12" r="3"/><path d="M15 8l4 8M19 8l-4 8"/>',
+  tank: '<rect x="6" y="4" width="12" height="16" rx="4"/><path d="M9 9h6"/>',
+  ahu: '<rect x="2" y="5" width="20" height="14" rx="1"/><circle cx="8" cy="12" r="3.4"/><path d="M14 6.5 12.5 17.5 M18 6.5 16.5 17.5"/>',
+  plant: '<rect x="2" y="5" width="20" height="14" rx="1"/><circle cx="7.5" cy="12" r="3"/><path d="M13 9c2 2.5-2 2.5 0 5M17.5 9c2 2.5-2 2.5 0 5"/>',
+  dist: '<path d="M3 12h6m0 0 8-6m-8 6 8 0m-8 0 8 6M17 4v4M17 10v4M17 16v4"/>',
+  zoneeq: '<rect x="3" y="8" width="13" height="9"/><path d="M16 12h5M6 17v3h8v-3"/>'
+};
+function iconUri(kind, stroke) {
+  const body = ICON_SHAPES[kind];
+  if (!body) return null;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">` +
+    `<g fill="none" stroke="${stroke}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${body}</g></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+const ICON_RULES = [
+  ['FAN', 'fan'], ['COIL:COOLING', 'coil'], ['COIL:HEATING', 'coil'], ['COIL', 'coil'],
+  ['PUMP', 'pump'], ['CHILLER', 'chiller'], ['BOILER', 'boiler'], ['COOLINGTOWER', 'tower'],
+  ['FLUIDCOOLER', 'tower'], ['AIRTERMINAL', 'terminal'], ['ZONEHVAC:AIRDISTRIBUTIONUNIT', 'terminal'],
+  ['HUMIDIFIER', 'humidifier'], ['AIRLOOPHVAC:OUTDOORAIRSYSTEM', 'oa'], ['OUTDOORAIR:MIXER', 'oa'],
+  ['HEATEXCHANGER', 'hx'], ['AIRLOOPHVAC:RETURNPLENUM', 'plenum'], ['AIRLOOPHVAC:SUPPLYPLENUM', 'plenum'],
+  ['PIPE', 'pipe'], ['AIRLOOPHVAC:UNITARY', 'unitary'], ['WATERHEATER', 'tank'],
+  ['ZONEHVAC', 'zoneeq']
+];
+
+function buildCyStyle(theme) {
+  const mario = theme === 'mario';
+  const stroke = mario ? '#173568' : '#aebdd3';
+  const c = mario ? {
+    nodeBg: '#fff5d8', nodeBorder: '#173568', label: '#173568',
+    zoneBg: '#fbd000', zoneBorder: '#7c2d05', zoneLabel: '#5c2d05',
+    groupBorder: '#2a4a9e', groupLabel: '#1a2a6a',
+    edge: '#888', air: '#e8eef8', water: '#43b047', crossover: '#e52521',
+    sel: '#e52521', linked: '#fbd000',
+    font: "'Press Start 2P', monospace", fontSize: 5.5
+  } : {
+    nodeBg: '#1a2230', nodeBorder: '#4d6076', label: '#7c8aa0',
+    zoneBg: '#5a4a2e', zoneBorder: '#8a6a35', zoneLabel: '#a99263',
+    groupBorder: '#2b3546', groupLabel: '#56647c',
+    edge: '#39455a', air: '#3a7a5c', water: '#3d6390', crossover: '#7c4a4a',
+    sel: '#ffc66b', linked: '#ffc66b',
+    font: 'IBM Plex Mono, monospace', fontSize: 9
+  };
+  const style = [
+    { selector: 'node', style: {
+        label: 'data(label)', 'font-size': c.fontSize, width: 26, height: 26,
+        'font-family': c.font, shape: 'round-rectangle',
+        'text-valign': 'bottom', 'text-margin-y': 3, 'text-wrap': 'wrap', 'text-max-width': 110,
+        color: c.label, 'background-color': c.nodeBg,
+        'border-width': 1, 'border-color': c.nodeBorder,
+        'background-fit': 'contain', 'background-clip': 'none'
+    }}
+  ];
+  for (const [prefix, kind] of ICON_RULES) {
+    style.push({ selector: `node[type ^= "${prefix}"]`, style: { 'background-image': iconUri(kind, stroke) } });
+  }
+  style.push(
+    { selector: 'node[?isZone]', style: {
+        shape: 'round-rectangle', 'background-color': c.zoneBg, 'border-color': c.zoneBorder,
+        'border-width': mario ? 2 : 1, width: 34, height: 24, color: c.zoneLabel,
+        'background-image': null
+    }},
+    { selector: 'node[type^="CONNECTOR"], node[type^="AIRLOOPHVAC:ZONESPLITTER"], node[type^="AIRLOOPHVAC:ZONEMIXER"]', style: {
+        shape: 'diamond', width: 18, height: 18
+    }},
+    { selector: 'node[?isUnit]', style: {
+        width: 52, height: 40, 'border-width': 2,
+        label: el => `${el.data('label')}  [${el.data('memberCount')}]`,
+        'font-weight': 'bold'
+    }},
+    { selector: 'node[unitType="ahu"]', style: { 'background-image': iconUri('ahu', stroke) } },
+    { selector: 'node[unitType="plant"]', style: { 'background-image': iconUri('plant', stroke) } },
+    { selector: 'node[unitType="dist"]', style: { 'background-image': iconUri('dist', stroke) } },
+    { selector: 'node[unitType="zoneeq"]', style: { 'background-image': iconUri('zoneeq', stroke) } },
+    { selector: ':parent', style: {
+        'background-color': '#ffffff', 'background-opacity': mario ? 0.12 : 0.02,
+        'border-color': c.groupBorder, 'border-width': 1, 'background-image': null,
+        label: 'data(label)', 'font-size': c.fontSize + 1, 'font-weight': 'bold',
+        'font-family': c.font,
+        'text-valign': 'top', 'text-margin-y': -4, color: c.groupLabel
+    }},
+    { selector: 'edge', style: {
+        width: 1.4, 'line-color': c.edge, 'target-arrow-color': c.edge,
+        'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'arrow-scale': 0.7,
+        opacity: 0.75, 'line-cap': mario ? 'round' : 'butt'
+    }},
+    { selector: 'edge[fluid="Air"]', style: { 'line-color': c.air, 'target-arrow-color': c.air } },
+    { selector: 'edge[fluid="Water"]', style: { 'line-color': c.water, 'target-arrow-color': c.water } },
+    { selector: 'edge[kind="crossover"]', style: { 'line-style': 'dashed', 'line-color': c.crossover, 'target-arrow-color': c.crossover } },
+    { selector: '.faded', style: { opacity: 0.08, 'text-opacity': 0.08 } },
+    { selector: '.linked', style: {
+        'underlay-color': c.linked, 'underlay-opacity': mario ? 0.4 : 0.18, 'underlay-padding': 5, 'z-index': 8
+    }},
+    { selector: 'node.linked', style: { 'border-color': c.linked } },
+    { selector: '.sel', style: {
+        'underlay-color': c.sel, 'underlay-opacity': mario ? 0.55 : 0.34, 'underlay-padding': 7, 'z-index': 9
+    }},
+    { selector: 'node.sel', style: { 'border-width': 2, 'border-color': c.sel } },
+    { selector: 'edge.sel', style: { 'line-color': c.sel, 'target-arrow-color': c.sel, opacity: 1 } },
+    { selector: ':selected', style: { 'overlay-opacity': 0 } }
+  );
+  return style;
+}
+
+/* ── unit collapse / expand ──────────────────────────────────── */
+// Stateless display rebuild: graph.elements is the ground truth; collapsed
+// units are substituted by proxy nodes and boundary edges re-routed to
+// them (deduped per node name). Avoids incremental remove/restore
+// ordering bugs entirely.
+function buildDisplayElements() {
+  if (!units || collapsedSet.size === 0) return structuredClone(graph.elements);
+  const proxyOf = id => {
+    const u = units.unitOf[id];
+    return u && collapsedSet.has(u) ? u : null;
+  };
+  const els = [];
+  const keptNodeIds = new Set();
+  const addedProxies = new Set();
+  for (const el of graph.elements) {
+    if (el.data.source || el.data.isGroup) continue;
+    const proxy = proxyOf(el.data.id);
+    if (!proxy) {
+      keptNodeIds.add(el.data.id);
+      els.push(structuredClone(el));
+    } else if (!addedProxies.has(proxy)) {
+      addedProxies.add(proxy);
+      const u = units.units[proxy];
+      els.push({ data: { id: u.id, label: u.label, isUnit: true, unitType: u.type, memberCount: u.members.length } });
+    }
+  }
+  // groups: keep only those still referenced by a kept node (directly or
+  // through a kept container chain); orphan parents are nulled
+  const presentIds = new Set([...keptNodeIds, ...addedProxies]);
+  for (const el of els) {
+    if (el.data.parent && !presentIds.has(el.data.parent)) {
+      const groupEl = graph.elements.find(g => g.data.id === el.data.parent && g.data.isGroup);
+      if (groupEl) {
+        if (![...els].some(x => x.data.id === groupEl.data.id)) els.push(structuredClone(groupEl));
+        presentIds.add(groupEl.data.id);
+      } else {
+        el.data.parent = null;
+      }
+    }
+  }
+  const seenEdges = new Set();
+  for (const el of graph.elements) {
+    if (!el.data.source) continue;
+    const s = proxyOf(el.data.source) || el.data.source;
+    const t = proxyOf(el.data.target) || el.data.target;
+    if (s === t || !presentIds.has(s) || !presentIds.has(t)) continue;
+    const key = `${s}|${t}|${el.data.label}`;
+    if (seenEdges.has(key)) continue;
+    seenEdges.add(key);
+    els.push({ data: { ...el.data, id: `d${seenEdges.size}`, source: s, target: t } });
+  }
+  return els;
+}
+
+function setCollapsed(nextSet) {
+  if (!cy || !units) return;
+  collapsedSet = nextSet;
+  clearSelection();
+  createCy(buildDisplayElements());
+  applyLayout();
+  applyPlaybackToGraph();
+}
+
+function onGraphNodeDblTap(n) {
+  const d = n.data();
+  if (d.isUnit) {
+    const next = new Set(collapsedSet);
+    next.delete(d.id);
+    setCollapsed(next);
+  } else {
+    const unitId = units && units.unitOf[d.id];
+    if (!unitId) return;
+    const next = new Set(collapsedSet);
+    next.add(unitId);
+    setCollapsed(next);
+  }
 }
 
 function loadGeometry(name, text) {
@@ -421,6 +667,7 @@ function loadPlayback(name, text) {
   const zones = Object.keys(playback.zones || {}).sort();
   playbackZonesUpper = new Map(zones.map(z => [upper(z), { key: z, series: playback.zones[z] }]));
   playbackStats = computePlaybackStats(playback);
+  classifyLoops();
   selectedTimeIndex = 0;
   setPlaying(false);
   $('timeSlider').max = Math.max(0, (playback.times || []).length - 1);
@@ -460,6 +707,15 @@ function computePlaybackStats(pb) {
       if (Number.isFinite(v) && (stats.flowMax == null || v > stats.flowMax)) stats.flowMax = v;
     }
   }
+  // per-node peak flow over the run — the capacity proxy that sizes edges
+  stats.nodePeaks = new Map();
+  for (const [name, node] of Object.entries(pb.nodes || {})) {
+    let peak = null;
+    for (const v of (node.massFlow && node.massFlow.values) || []) {
+      if (Number.isFinite(v) && (peak == null || v > peak)) peak = v;
+    }
+    if (peak != null) stats.nodePeaks.set(name, peak);
+  }
   nodeTemps.sort((a, b) => a - b);
   if (nodeTemps.length) {
     const q = p => nodeTemps[Math.round(p * (nodeTemps.length - 1))];
@@ -479,6 +735,64 @@ function computePlaybackStats(pb) {
 function zoneSeriesFor(zoneName) {
   const entry = playbackZonesUpper && playbackZonesUpper.get(upper(zoneName));
   return entry ? entry.series : null;
+}
+
+// "System" palette: loop function, not raw fluid. Air = amber; condenser
+// water = green (explicit loop kind); plant water loops split hot (red)
+// vs chilled (blue) by their operating regime in the playback data — the
+// 90th-percentile node temperature on the loop — instead of guessing
+// from loop names. Without playback, plant loops stay violet (unknown).
+const SYSTEM_PALETTE = {
+  air: '#d9a23b', chw: '#5b9bd9', hw: '#d65b4a', cw: '#46b380', other: '#8a7fb8'
+};
+function classifyLoops() {
+  loopFunctionColors = {};
+  if (!graph) return;
+  const tempsByLoop = {};
+  if (playback && playback.nodes) {
+    for (const v of Object.values(graph.vertices)) {
+      if (!v.group || !v.group.startsWith('loop|')) continue;
+      const loop = v.group.slice(5);
+      for (const p of v.pairs) {
+        for (const nodeName of [p.inlet, p.outlet]) {
+          const node = nodeName && playback.nodes[nodeName];
+          if (!node || !node.temperature) continue;
+          const arr = tempsByLoop[loop] || (tempsByLoop[loop] = []);
+          const values = node.temperature.values;
+          const stride = Math.max(1, Math.ceil(values.length / 200));
+          for (let i = 0; i < values.length; i += stride)
+            if (Number.isFinite(values[i])) arr.push(values[i]);
+        }
+      }
+    }
+  }
+  for (const [loop, kind] of Object.entries(graph.loopKind || {})) {
+    if (kind === 'Air') { loopFunctionColors[loop] = SYSTEM_PALETTE.air; continue; }
+    if (kind === 'Condenser') { loopFunctionColors[loop] = SYSTEM_PALETTE.cw; continue; }
+    const temps = tempsByLoop[loop];
+    if (!temps || temps.length < 10) { loopFunctionColors[loop] = SYSTEM_PALETTE.other; continue; }
+    temps.sort((a, b) => a - b);
+    const p90 = temps[Math.round(0.9 * (temps.length - 1))];
+    loopFunctionColors[loop] = p90 >= 35 ? SYSTEM_PALETTE.hw
+      : p90 <= 18 ? SYSTEM_PALETTE.chw
+      : SYSTEM_PALETTE.cw;
+  }
+}
+
+function loopNameForGraphId(id) {
+  const v = graph && graph.vertices[id];
+  if (v && v.group && v.group.startsWith('loop|')) return v.group.slice(5);
+  if (String(id).startsWith('unit|')) {
+    const parts = id.split('|');
+    if (parts[1] !== 'ZEQ') return parts[2];
+  }
+  return null;
+}
+
+function systemColorForEdge(edge) {
+  if (edge.data('fluid') === 'Air') return SYSTEM_PALETTE.air;
+  const loop = loopNameForGraphId(edge.data('source')) || loopNameForGraphId(edge.data('target'));
+  return (loopFunctionColors && loopFunctionColors[loop]) || SYSTEM_PALETTE.other;
 }
 
 function colorForTemperature(value, min, max) {
@@ -533,7 +847,10 @@ function updateTime() {
 }
 
 function readoutValueText() {
-  if (!selection) return currentMetric === 'temperature' ? 'node temperature' : 'node mass flow';
+  if (!selection) {
+    return currentMetric === 'system' ? 'system view'
+      : currentMetric === 'temperature' ? 'node temperature' : 'node mass flow';
+  }
   if (selection.kind === 'zone') {
     const series = zoneSeriesFor(selection.zoneName);
     const v = series && series.temperature && series.temperature.values[selectedTimeIndex];
@@ -573,6 +890,8 @@ function setPlaying(on) {
   if (on && playback && (playback.times || []).length > 1) {
     playTimer = setInterval(stepTime, 1000 / Number($('playSpeed').value));
   }
+  if (playTimer && !dashRaf) dashRaf = requestAnimationFrame(animateDashes);
+  if (!playTimer) stopDashes();
   $('playBtn').textContent = playTimer ? '⏸' : '▶';
 }
 
@@ -584,28 +903,44 @@ function stepTime() {
 
 /* ── graph styling from playback ─────────────────────────────── */
 
-// Edge color = selected metric (temp ramp / flow ramp), edge width = √flow,
-// zone box fill = zone mean air temp — all on whole-run scales so color
-// motion during playback means the data changed, not the scale.
+// Edge WIDTH = capacity (the node's peak flow over the whole run), edge
+// OPACITY = utilization right now (current/peak — idle systems go faint),
+// edge COLOR = selected metric ramp (or fluid identity in 8-bit mode:
+// pipes are pipes, ducts are ducts). Zone fills = zone mean air temp.
+// All ramps are whole-run scales so color motion means the data changed.
 function applyPlaybackToGraph() {
   if (!cy || !playback || !playback.nodes) return;
   const s = playbackStats || {};
+  const mario = currentTheme === 'mario';
   cy.batch(() => {
     cy.edges().forEach(edge => {
       const nodeName = String(edge.data('label') || '').split(' ⇒ ')[0];
       const node = playback.nodes[nodeName];
       const temp = node && node.temperature && node.temperature.values[selectedTimeIndex];
       const flow = node && node.massFlow && node.massFlow.values[selectedTimeIndex];
+      const peak = s.nodePeaks ? s.nodePeaks.get(nodeName) : null;
       if (Number.isFinite(temp) || Number.isFinite(flow)) {
-        const color = currentMetric === 'temperature'
-          ? (Number.isFinite(temp) ? colorForTemperature(temp, s.tempMin, s.tempMax) : '#56647c')
-          : colorForFlow(flow, s.flowMax);
-        const width = Number.isFinite(flow) && s.flowMax > 0
-          ? 1.2 + Math.sqrt(Math.max(0, flow) / s.flowMax) * 6
+        const width = peak > 0 && s.flowMax > 0
+          ? 1.4 + Math.sqrt(peak / s.flowMax) * (mario ? 9 : 7)
           : 2;
-        edge.style({ width, 'line-color': color, 'target-arrow-color': color, opacity: 0.95 });
+        const util = peak > 0 && Number.isFinite(flow) ? Math.min(1, flow / peak) : null;
+        const opacity = util == null ? 0.85 : 0.22 + 0.73 * Math.sqrt(util);
+        let color;
+        if (mario) {
+          color = edge.data('fluid') === 'Water' ? '#43b047'
+            : edge.data('fluid') === 'Air' ? '#e8eef8' : '#9a6a30';
+        } else if (currentMetric === 'system') {
+          color = systemColorForEdge(edge);
+        } else {
+          color = currentMetric === 'temperature'
+            ? (Number.isFinite(temp) ? colorForTemperature(temp, s.tempMin, s.tempMax) : '#56647c')
+            : colorForFlow(flow, s.flowMax);
+        }
+        edge.style({ width, 'line-color': color, 'target-arrow-color': color, opacity });
+        edge.toggleClass('flowing', util != null && util > 0.02);
       } else {
         edge.style({ width: '', 'line-color': '', 'target-arrow-color': '', opacity: '' });
+        edge.removeClass('flowing');
       }
     });
     cy.nodes('[?isZone]').forEach(zoneBox => {
@@ -621,6 +956,23 @@ function applyPlaybackToGraph() {
   });
 }
 
+// Directional flow motion: marching dashes on edges with live flow, only
+// while playing. One batched style write per frame — cytoscape redraws
+// the canvas regardless, so this is the cheap way to show direction.
+function animateDashes(ts) {
+  if (!cy || !playTimer) { stopDashes(); return; }
+  const offset = -((ts / 35) % 48);
+  cy.batch(() => {
+    cy.edges('.flowing').style({ 'line-style': 'dashed', 'line-dash-pattern': [7, 5], 'line-dash-offset': offset });
+  });
+  dashRaf = requestAnimationFrame(animateDashes);
+}
+
+function stopDashes() {
+  if (dashRaf) { cancelAnimationFrame(dashRaf); dashRaf = null; }
+  if (cy) cy.edges('.flowing').style({ 'line-style': 'solid' });
+}
+
 /* ── selection model ─────────────────────────────────────────── */
 // One selection drives both views + inspector:
 //   zone   → zone box .sel, its edges/neighbors .linked, 3D zone lit, epJSON info
@@ -631,7 +983,7 @@ function clearSelection() {
   selection = null;
   if (cy) cy.elements().removeClass('sel linked');
   updateZoneHighlights();
-  $('inspector').innerHTML =
+  $('inspectorBody').innerHTML =
     '<span class="empty">Nothing selected.</span>' +
     '<ul class="hintList">' +
     '<li>click a component or zone in the graph</li>' +
@@ -718,7 +1070,37 @@ function selectEdge(edge) {
 function onGraphNodeTap(n) {
   const d = n.data();
   if (d.isGroup) { clearSelection(); return; }
+  if (d.isUnit) { selectUnit(d.id); return; }
   selectVertex(d.id);
+}
+
+function selectUnit(unitId) {
+  const u = units && units.units[unitId];
+  if (!u) return clearSelection();
+  selection = { kind: 'unit', title: u.label, zoneName: u.type === 'zoneeq' ? u.label.split(' · ')[0] : null };
+  cy.elements().removeClass('sel linked');
+  const node = cy.getElementById(unitId);
+  if (node.nonempty()) {
+    node.addClass('sel');
+    const edges = node.connectedEdges();
+    edges.addClass('linked');
+    edges.connectedNodes().difference(node).addClass('linked');
+  }
+  updateZoneHighlights();
+  renderUnitInspector(u);
+  if (playback) updateTime();
+}
+
+function renderUnitInspector(u) {
+  const TYPE_LABEL = { ahu: 'AIR HANDLER (AIR LOOP)', plant: 'PLANT LOOP SIDE', dist: 'AIR DISTRIBUTION', zoneeq: 'ZONE EQUIPMENT' };
+  let html = `<h2>${esc(u.label)}</h2><span class="kindChip">${TYPE_LABEL[u.type] || 'UNIT'}</span>`;
+  html += kv([['members', u.members.length], ['collapsed', collapsedSet.has(u.id) ? 'yes — double-click to expand' : 'no']]);
+  html += '<h3>members</h3>';
+  html += u.members.map(id => {
+    const v = graph.vertices[id];
+    return `<div class="conn"><span class="ct">${esc(v ? v.type : '')}</span><br><span class="obj">${esc(v ? v.name : id)}</span></div>`;
+  }).join('');
+  $('inspectorBody').innerHTML = html;
 }
 
 function onGraphEdgeTap(e) {
@@ -782,7 +1164,7 @@ function renderZoneInspector(zoneName, zv) {
   } else {
     html += '<h3>HVAC nodes</h3><span class="empty">no matching zone in .bnd graph</span>';
   }
-  $('inspector').innerHTML = html;
+  $('inspectorBody').innerHTML = html;
 }
 
 function renderVertexInspector(v) {
@@ -800,7 +1182,7 @@ function renderVertexInspector(v) {
             `<tr><td>out</td><td>${p.outlet ? nodeInfoRow(p.outlet) : '—'}</td></tr>`;
   }
   html += '</table><h3>objects touching these nodes</h3>' + connectionsHtml(nodeNames);
-  $('inspector').innerHTML = html;
+  $('inspectorBody').innerHTML = html;
 }
 
 function renderEdgeInspector(d, names) {
@@ -812,7 +1194,7 @@ function renderEdgeInspector(d, names) {
     ['fluid', esc(d.fluid || '—')]
   ]);
   html += '<h3>objects touching this node</h3>' + connectionsHtml(names);
-  $('inspector').innerHTML = html;
+  $('inspectorBody').innerHTML = html;
 }
 
 function formatBounds(bounds) {
@@ -824,10 +1206,51 @@ function formatBounds(bounds) {
 
 function applyLayout() {
   if (!cy) return;
-  if ($('layoutMode').value === 'system') {
+  const mode = $('layoutMode').value;
+  if (mode === 'units') {
+    // max-collapsed system diagram: plant → AHU → distribution → zone
+    // equipment → zones, one column each
+    const COLS = { plant: 0, ahu: 1, dist: 2, zoneeq: 3 };
+    const buckets = new Map(); // col -> [node]
+    cy.nodes().forEach(n => {
+      const d = n.data();
+      let col;
+      if (d.isUnit) col = COLS[d.unitType] ?? 0;
+      else if (d.isZone) col = 4;
+      else if (d.isGroup) return;
+      else col = 5; // unitless stragglers
+      (buckets.get(col) || buckets.set(col, []).get(col)).push(n);
+    });
+    cy.batch(() => {
+      cy.nodes(':child').move({ parent: null });
+      cy.nodes('[?isGroup]').style('display', 'none');
+      for (const [col, nodes] of buckets) {
+        nodes.sort((a, b) => String(a.data('label')).localeCompare(String(b.data('label'))));
+        nodes.forEach((n, i) => n.position({ x: col * 260, y: i * 64 }));
+      }
+    });
+    cy.style()
+      .selector('edge').style({ 'curve-style': 'taxi', 'taxi-direction': 'rightward',
+                                'taxi-turn': 40, 'taxi-turn-min-distance': 12 })
+      .update();
+    cy.fit(undefined, 40);
+  } else if (mode === 'system') {
     // bands/columns already encode the grouping, so compounds are
     // redundant boxes that span bands — flatten them for this mode
     const sys = computeSystemLayout(model, graph);
+    const posFor = id => {
+      if (sys.positions[id]) return sys.positions[id];
+      const u = units && units.units[id]; // collapsed proxy -> member centroid
+      if (u) {
+        let sx = 0, sy = 0, n = 0;
+        for (const m of u.members) {
+          const p = sys.positions[m];
+          if (p) { sx += p.x; sy += p.y; n++; }
+        }
+        if (n) return { x: sx / n, y: sy / n };
+      }
+      return undefined;
+    };
     cy.batch(() => {
       cy.nodes(':child').move({ parent: null });
       cy.nodes('[?isGroup], [?isContainer]').style('display', 'none');
@@ -836,14 +1259,14 @@ function applyLayout() {
       .selector('edge').style({ 'curve-style': 'taxi', 'taxi-direction': 'rightward',
                                 'taxi-turn': 40, 'taxi-turn-min-distance': 12 })
       .update();
-    cy.layout({ name: 'preset', positions: n => sys.positions[n.id()] || undefined,
+    cy.layout({ name: 'preset', positions: n => posFor(n.id()),
                 animate: false, fit: true, padding: 30 }).run();
   } else {
     cy.batch(() => {
       cy.nodes('[?isGroup], [?isContainer]').style('display', 'element');
       cy.nodes().forEach(n => {
         const p = n.data('origParent');
-        if (p && n.data('parent') !== p) n.move({ parent: p });
+        if (p && n.data('parent') !== p && cy.getElementById(p).nonempty()) n.move({ parent: p });
       });
     });
     cy.style().selector('edge').style({ 'curve-style': 'bezier' }).update();
@@ -914,7 +1337,7 @@ function renderZones3d() {
 function initThree() {
   const root = $('zone3d');
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0e1219);
+  scene.background = new THREE.Color(currentTheme === 'mario' ? 0x5c94fc : 0x0e1219);
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100000);
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -1121,9 +1544,33 @@ function toast(message) {
 }
 
 $('loopFilter').addEventListener('change', applyFilter);
-$('layoutMode').addEventListener('change', applyLayout);
+$('layoutMode').addEventListener('change', () => {
+  if ($('layoutMode').value === 'units' && units) {
+    setCollapsed(new Set(Object.keys(units.units))); // setCollapsed re-runs layout
+  } else {
+    applyLayout();
+  }
+});
+$('collapseAll').addEventListener('click', () => { if (units) setCollapsed(new Set(Object.keys(units.units))); });
+$('expandAll').addEventListener('click', () => {
+  if ($('layoutMode').value === 'units') $('layoutMode').value = 'system';
+  setCollapsed(new Set());
+});
 $('fit').addEventListener('click', () => { if (cy) cy.fit(undefined, 30); });
 $('resetCam').addEventListener('click', fitThreeCamera);
+
+for (const btn of document.querySelectorAll('#themeToggle button')) {
+  btn.addEventListener('click', () => {
+    currentTheme = btn.dataset.theme;
+    for (const b of document.querySelectorAll('#themeToggle button')) b.classList.toggle('on', b === btn);
+    document.body.classList.toggle('mario', currentTheme === 'mario');
+    if (cy) { cy.style(buildCyStyle(currentTheme)); applyPlaybackToGraph(); }
+    if (threeView) {
+      threeView.scene.background = new THREE.Color(currentTheme === 'mario' ? 0x5c94fc : 0x0e1219);
+      updateZoneHighlights();
+    }
+  });
+}
 $('timeSlider').addEventListener('input', updateTime);
 $('playBtn').addEventListener('click', () => setPlaying(!playTimer));
 $('playSpeed').addEventListener('change', () => { if (playTimer) setPlaying(true); });
@@ -1150,39 +1597,120 @@ window.addEventListener('keydown', e => {
 
 window.addEventListener('resize', () => { resizeThree(); });
 
+/* panel grabbers + per-panel collapse */
+function viewsResized() {
+  if (cy) cy.resize();
+  resizeThree();
+}
+
+function wireSplitter(splitter, onDrag) {
+  splitter.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    splitter.classList.add('dragging');
+    splitter.setPointerCapture(e.pointerId);
+    const move = ev => { onDrag(ev.clientX); viewsResized(); };
+    const up = () => {
+      splitter.classList.remove('dragging');
+      splitter.removeEventListener('pointermove', move);
+      splitter.removeEventListener('pointerup', up);
+      viewsResized();
+    };
+    splitter.addEventListener('pointermove', move);
+    splitter.addEventListener('pointerup', up);
+  });
+}
+
+wireSplitter($('splitPanes'), x => {
+  const rect = $('panes').getBoundingClientRect();
+  const frac = Math.min(0.85, Math.max(0.15, (x - rect.left) / rect.width));
+  $('graphPane').style.flex = `${frac} 1 0`;
+  $('zonePane').style.flex = `${1 - frac} 1 0`;
+});
+
+wireSplitter($('splitInspector'), x => {
+  const rect = $('workspace').getBoundingClientRect();
+  const width = Math.min(560, Math.max(220, rect.right - x));
+  $('inspector').style.width = `${width}px`;
+});
+
+for (const btn of document.querySelectorAll('.paneToggle')) {
+  btn.addEventListener('click', () => {
+    const pane = $(btn.dataset.target);
+    const closed = pane.classList.toggle('closed');
+    btn.textContent = closed ? '⊞' : '—';
+    viewsResized();
+  });
+}
+
 clearSelection();
 
-/* ── auto-load ───────────────────────────────────────────────── */
-// Over http(s) the Large Office demo set loads by default (prototyping);
-// #bnd=/#geometry=/#data= override it, #t=/#play=1 position playback.
+/* ── demo datasets & auto-load ───────────────────────────────── */
+// Over http(s) a demo set loads by default (prototyping). Hash params:
+// #dataset=hospital, #bnd=/#geometry=/#data= (explicit URLs win),
+// #t= / #play=1, #sel=<zone>, #theme=mario, #layout=units|organic|system,
+// #collapse=all.
 const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
 const isHttp = /^https?:$/.test(location.protocol);
-const DEFAULTS = {
-  bnd: 'demo-data/large-office.bnd',
-  geometry: 'demo-data/large-office.epJSON',
-  data: 'demo-data/large-office.playback.json'
+const DEMOS = {
+  'large-office': { bnd: 'demo-data/large-office.bnd', geometry: 'demo-data/large-office.epJSON', data: 'demo-data/large-office.playback.json' },
+  'hospital': { bnd: 'demo-data/hospital.bnd', geometry: 'demo-data/hospital.epJSON', data: 'demo-data/hospital.playback.json' },
+  'small-office': { bnd: 'demo-data/small-office.bnd', geometry: 'demo-data/small-office.epJSON', data: 'demo-data/small-office.playback.json' }
 };
-for (const [key, load] of [['bnd', loadText], ['geometry', loadGeometry], ['data', loadPlayback]]) {
-  const url = hashParams.get(key) || (isHttp ? DEFAULTS[key] : null);
-  if (!url) continue;
-  if (key === 'data') $('readoutValue').textContent = 'loading playback…';
-  fetch(url)
-    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
-    .then(t => {
-      load(decodeURIComponent(url.split('/').pop() || url), t);
-      if (key === 'data') {
-        const timeIdx = Number(hashParams.get('t'));
-        if (Number.isFinite(timeIdx) && timeIdx > 0) {
-          $('timeSlider').value = String(timeIdx);
-          updateTime();
+
+function loadFromUrls(srcs, opts = {}) {
+  for (const [key, load] of [['bnd', loadText], ['geometry', loadGeometry], ['data', loadPlayback]]) {
+    const url = srcs[key];
+    if (!url) continue;
+    if (key === 'data') $('readoutValue').textContent = 'loading playback…';
+    fetch(url)
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
+      .then(t => {
+        load(decodeURIComponent(url.split('/').pop() || url), t);
+        if (key === 'bnd' && opts.collapse && units) {
+          setCollapsed(new Set(Object.keys(units.units)));
         }
-        if (hashParams.get('play')) setPlaying(true);
-      }
-    })
-    .catch(error => {
-      if (key === 'data') $('readoutValue').textContent = `${url}: ${error.message}`;
-      else toast(`${key}=${url}: ${error.message}`);
-    });
+        if (key === 'data') {
+          const timeIdx = Number(opts.t);
+          if (Number.isFinite(timeIdx) && timeIdx > 0) {
+            $('timeSlider').value = String(timeIdx);
+            updateTime();
+          }
+          if (opts.play) setPlaying(true);
+        }
+      })
+      .catch(error => {
+        if (key === 'data') $('readoutValue').textContent = `${url}: ${error.message}`;
+        else toast(`${key}=${url}: ${error.message}`);
+      });
+  }
+}
+
+$('datasetPick').addEventListener('change', () => {
+  setPlaying(false);
+  loadFromUrls(DEMOS[$('datasetPick').value] || {});
+});
+
+const startTheme = hashParams.get('theme');
+if (startTheme === 'mario') document.querySelector('#themeToggle button[data-theme="mario"]').click();
+const startLayout = hashParams.get('layout');
+if (startLayout && [...$('layoutMode').options].some(o => o.value === startLayout)) {
+  $('layoutMode').value = startLayout;
+}
+
+if (isHttp) {
+  const datasetKey = DEMOS[hashParams.get('dataset')] ? hashParams.get('dataset') : 'large-office';
+  $('datasetPick').value = datasetKey;
+  const srcs = { ...DEMOS[datasetKey] };
+  for (const key of ['bnd', 'geometry', 'data'])
+    if (hashParams.get(key)) srcs[key] = hashParams.get(key);
+  loadFromUrls(srcs, {
+    t: hashParams.get('t'),
+    play: hashParams.get('play'),
+    collapse: hashParams.get('collapse') === 'all' || $('layoutMode').value === 'units'
+  });
+} else {
+  for (const key of ['bnd', 'geometry', 'data'])
+    if (hashParams.get(key)) loadFromUrls({ [key]: hashParams.get(key) });
 }
 </script>
 </body>
