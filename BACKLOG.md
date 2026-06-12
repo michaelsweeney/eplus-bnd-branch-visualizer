@@ -5,16 +5,6 @@ Feature queue for the prototype, roughly ordered. Items marked (Mike,
 
 ## Queued
 
-- **Public demo deployment** (Mike, 2026-06-12): host the app with 2–3
-  pre-populated prototype datasets (decimate playback to ~3-hourly +
-  round precision so files clear Cloudflare Pages' 25 MB cap; exporter
-  grows an `--every N` flag), plus a "Bring your own model" path:
-  drag-drop already degrades gracefully (.bnd alone = topology, +epJSON
-  = 3D zones); document the two Output:Variable + SQLite requirements
-  for playback, with `npm run prep` as the convenience route. Repo is
-  private (github.com/michaelsweeney/eplus-bnd-branch-visualizer); a
-  Pages site stays public independent of repo visibility. Target:
-  LinkedIn-postable click-and-play URL.
 - **Multi-selection + search box** (Mike, 2026-06-12): text search over
   components/zones/nodes with type-ahead; multi-select (ctrl-click and
   search-driven) feeding the same highlight/inspector pipeline.
@@ -37,6 +27,13 @@ Feature queue for the prototype, roughly ordered. Items marked (Mike,
 
 ## Done (this session)
 
+- **Public demo deployed**: https://eplus-bnd-viz.pages.dev (Cloudflare
+  Pages project `eplus-bnd-viz`, wrangler-deployed from `npm run
+  build:demo` output — decimated playback: offices 3-hourly, hospital
+  4-hourly, values rounded to 3 decimals). Repo stays private at
+  github.com/michaelsweeney/eplus-bnd-branch-visualizer. Redeploy:
+  `npm run build:demo && npx wrangler pages deploy dist --project-name
+  eplus-bnd-viz`. BYO-model docs in README.
 - UI declutter pass: theme/units/colorscale into a topbar ⚙ popover;
   collapse/expand-all moved from the graph toolbar into a right-click
   context menu (per-object group/hide/select + background view actions).
