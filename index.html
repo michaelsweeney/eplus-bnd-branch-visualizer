@@ -72,39 +72,51 @@
   </div>
   <div class="splitter" id="splitSystems"></div>
   <div id="panes">
-    <div class="pane" id="graphPane">
+    <div id="panesRow">
+      <div class="pane" id="graphPane">
+        <div class="paneHead">
+          <span class="paneTitle">SYSTEM GRAPH</span>
+          <span id="loadStatus"></span>
+          <div class="tools">
+            <select id="loopFilter" title="loop filter"><option value="">all loops</option></select>
+            <select id="layoutMode" title="layout">
+              <option value="system">system flow</option>
+              <option value="organic">organic</option>
+              <option value="units">unit overview</option>
+            </select>
+            <button class="toolBtn" id="fit">fit</button>
+            <button class="toolBtn paneToggle" data-target="graphPane">—</button>
+          </div>
+        </div>
+        <div id="cy"></div>
+        <div id="graphEmpty">drop an EnergyPlus .bnd file</div>
+      </div>
+      <div class="splitter" id="splitPanes"></div>
+      <div class="pane" id="zonePane">
+        <div class="paneHead">
+          <span class="paneTitle">ZONES 3D</span>
+          <div class="tools">
+            <button class="toolBtn" id="resetCam">reset view</button>
+            <button class="toolBtn paneToggle" data-target="zonePane">—</button>
+          </div>
+        </div>
+        <div id="zone3d"><div id="zone3dEmpty">drop an epJSON model</div></div>
+      </div>
+    </div>
+    <div class="hsplitter" id="splitChart"></div>
+    <div class="pane" id="chartPane">
       <div class="paneHead">
-        <span class="paneTitle">SYSTEM GRAPH</span>
-        <span id="loadStatus"></span>
+        <span class="paneTitle">CHART</span>
+        <span id="miniChartTitle"></span>
         <div class="tools">
-          <select id="loopFilter" title="loop filter"><option value="">all loops</option></select>
-          <select id="layoutMode" title="layout">
-            <option value="system">system flow</option>
-            <option value="organic">organic</option>
-            <option value="units">unit overview</option>
-          </select>
-          <button class="toolBtn" id="fit">fit</button>
-          <button class="toolBtn paneToggle" data-target="graphPane">—</button>
+          <button class="toolBtn paneToggle" data-target="chartPane">—</button>
         </div>
       </div>
-      <div id="cy"></div>
-      <div id="graphEmpty">drop an EnergyPlus .bnd file</div>
-    </div>
-    <div id="miniChart">
-      <div id="miniChartHead"><span id="miniChartTitle"></span><button id="miniChartMin" title="minimize">–</button><button id="miniChartMax" title="maximize">⛶</button><button id="miniChartClose" title="hide">×</button></div>
-      <canvas id="miniChartCanvas"></canvas>
-      <div id="miniLegend"></div>
-    </div>
-    <div class="splitter" id="splitPanes"></div>
-    <div class="pane" id="zonePane">
-      <div class="paneHead">
-        <span class="paneTitle">ZONES 3D</span>
-        <div class="tools">
-          <button class="toolBtn" id="resetCam">reset view</button>
-          <button class="toolBtn paneToggle" data-target="zonePane">—</button>
-        </div>
+      <div id="chartBody">
+        <canvas id="miniChartCanvas"></canvas>
+        <div id="miniLegend"></div>
+        <div id="chartEmpty">select a component, zone, edge, or unit to chart its series</div>
       </div>
-      <div id="zone3d"><div id="zone3dEmpty">drop an epJSON model</div></div>
     </div>
   </div>
   <div class="splitter" id="splitInspector"></div>

@@ -945,8 +945,6 @@ const MINI_COLORS = ['#e0a33b', '#4f9dd9', '#52b788', '#d96a6a'];
 let miniSeries = [];
 let miniCache = null;
 let miniPlot = null; // plot-rect padding so the marker tracks the axes
-let miniHidden = false;
-let miniKey = null;
 
 function computeMiniSeries() {
   if (!playback || !selection) return [];
@@ -1003,18 +1001,16 @@ function computeMiniSeries() {
 }
 
 function updateMiniChart() {
-  const key = selection
-    ? `${selection.kind}|${selection.unitId || selection.vertexId || selection.nodeName || selection.zoneName || ''}`
-    : null;
-  if (key !== miniKey) { miniHidden = false; miniKey = key; }
   miniSeries = computeMiniSeries();
-  const show = !miniHidden && miniSeries.length > 0;
-  $('miniChart').style.display = show ? 'flex' : 'none';
-  if (!show) return;
-  $('miniChartTitle').textContent = selection.title || selection.zoneName || '';
+  $('miniChartTitle').textContent =
+    selection && miniSeries.length ? selection.title || selection.zoneName || '' : '';
   $('miniLegend').innerHTML = miniSeries
     .map((s, i) => `<span><i style="background:${MINI_COLORS[i]}"></i>${esc(s.label)}</span>`)
     .join('');
+  const empty = miniSeries.length === 0;
+  $('chartEmpty').style.display = empty ? 'flex' : 'none';
+  $('miniChartCanvas').style.visibility = empty ? 'hidden' : 'visible';
+  if (empty) { miniCache = null; return; }
   renderMiniCache();
   drawMiniChart();
 }
@@ -1108,7 +1104,7 @@ function renderMiniCache() {
 }
 
 function drawMiniChart() {
-  if (!miniCache || $('miniChart').style.display === 'none') return;
+  if (!miniCache || !miniSeries.length) return;
   const canvas = $('miniChartCanvas');
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1835,69 +1831,14 @@ for (const btn of document.querySelectorAll('#unitToggle button')) {
   });
 }
 
-$('miniChartClose').addEventListener('click', () => {
-  miniHidden = true;
-  $('miniChart').style.display = 'none';
-});
-
-let miniMinimized = false;
-$('miniChartMin').addEventListener('click', () => {
-  miniMinimized = !miniMinimized;
-  $('miniChart').classList.toggle('minimized', miniMinimized);
-  $('miniChartMin').textContent = miniMinimized ? '▢' : '–';
-  if (!miniMinimized && miniSeries.length) { renderMiniCache(); drawMiniChart(); }
-});
-
-$('miniChartMax').addEventListener('click', () => {
-  const mc = $('miniChart');
-  const panes = $('panes').getBoundingClientRect();
-  if (mc.dataset.big === '1') {
-    mc.style.width = '340px';
-    mc.style.height = '178px';
-    mc.dataset.big = '';
-  } else {
-    mc.style.width = `${Math.round(panes.width * 0.6)}px`;
-    mc.style.height = `${Math.round(panes.height * 0.55)}px`;
-    mc.dataset.big = '1';
-  }
-});
-
-// drag by the head bar; switches from corner-anchored to explicit x/y
-$('miniChartHead').addEventListener('pointerdown', e => {
-  if (e.target.tagName === 'BUTTON') return;
-  e.preventDefault();
-  const mc = $('miniChart');
-  const head = $('miniChartHead');
-  const panes = $('panes').getBoundingClientRect();
-  const rect = mc.getBoundingClientRect();
-  const grabX = e.clientX - rect.left;
-  const grabY = e.clientY - rect.top;
-  head.setPointerCapture(e.pointerId);
-  const move = ev => {
-    const x = Math.max(0, Math.min(panes.width - rect.width, ev.clientX - panes.left - grabX));
-    const y = Math.max(0, Math.min(panes.height - 32, ev.clientY - panes.top - grabY));
-    mc.style.left = `${x}px`;
-    mc.style.top = `${y}px`;
-    mc.style.right = 'auto';
-    mc.style.bottom = 'auto';
-  };
-  const up = () => {
-    head.removeEventListener('pointermove', move);
-    head.removeEventListener('pointerup', up);
-  };
-  head.addEventListener('pointermove', move);
-  head.addEventListener('pointerup', up);
-});
-
-// re-render the cached plot when the panel is resized (native handle or
-// maximize) — canvas pixels track the new box
+// re-render the cached plot whenever the chart pane changes size (its
+// own splitter, side-panel splitters, or collapse/expand)
 new ResizeObserver(() => {
-  const mc = $('miniChart');
-  if (mc.style.display !== 'none' && !miniMinimized && miniSeries.length) {
+  if (miniSeries.length && !$('chartPane').classList.contains('closed')) {
     renderMiniCache();
     drawMiniChart();
   }
-}).observe($('miniChart'));
+}).observe($('chartPane'));
 
 for (const btn of document.querySelectorAll('#themeToggle button')) {
   btn.addEventListener('click', () => {
@@ -1948,7 +1889,7 @@ function wireSplitter(splitter, onDrag) {
     e.preventDefault();
     splitter.classList.add('dragging');
     splitter.setPointerCapture(e.pointerId);
-    const move = ev => { onDrag(ev.clientX); viewsResized(); };
+    const move = ev => { onDrag(ev.clientX, ev.clientY); viewsResized(); };
     const up = () => {
       splitter.classList.remove('dragging');
       splitter.removeEventListener('pointermove', move);
@@ -1967,10 +1908,16 @@ wireSplitter($('splitSystems'), x => {
 });
 
 wireSplitter($('splitPanes'), x => {
-  const rect = $('panes').getBoundingClientRect();
+  const rect = $('panesRow').getBoundingClientRect();
   const frac = Math.min(0.85, Math.max(0.15, (x - rect.left) / rect.width));
   $('graphPane').style.flex = `${frac} 1 0`;
   $('zonePane').style.flex = `${1 - frac} 1 0`;
+});
+
+wireSplitter($('splitChart'), (x, y) => {
+  const rect = $('panes').getBoundingClientRect();
+  const h = Math.min(rect.height * 0.6, Math.max(90, rect.bottom - y));
+  $('chartPane').style.height = `${h}px`;
 });
 
 wireSplitter($('splitInspector'), x => {

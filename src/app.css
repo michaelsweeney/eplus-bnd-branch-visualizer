@@ -84,7 +84,8 @@
 
   /* ── workspace ───────────────────────────────────────────── */
   #workspace { flex: 1; display: flex; min-height: 0; }
-  #panes { flex: 1; display: flex; min-width: 0; position: relative; }
+  #panes { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #panesRow { flex: 1; display: flex; min-height: 0; position: relative; }
   .pane { position: relative; min-width: 0; display: flex; flex-direction: column; background: var(--panel); }
   .pane + .pane { border-left: 1px solid var(--hairline); }
   #graphPane { flex: 1.35; }
@@ -120,7 +121,12 @@
     flex: none; width: 5px; cursor: col-resize; background: transparent;
     transition: background 0.15s; z-index: 6;
   }
-  .splitter:hover, .splitter.dragging { background: var(--accent-dim); }
+  .hsplitter {
+    flex: none; height: 5px; cursor: row-resize; background: transparent;
+    transition: background 0.15s; z-index: 6;
+  }
+  .splitter:hover, .splitter.dragging,
+  .hsplitter:hover, .hsplitter.dragging { background: var(--accent-dim); }
   .pane.closed { flex: 0 0 30px !important; min-width: 30px; overflow: hidden; }
   .pane.closed > :not(.paneHead) { display: none !important; }
   .pane.closed .paneHead { height: 100%; flex-direction: column; padding: 10px 0; gap: 8px; border-bottom: 0; }
@@ -287,35 +293,29 @@ body.light #inspector .conn { background: #ffffff; }
 body.light .sysRow:hover { background: rgba(0,0,0,0.04); }
 body.light .sysRow.selected { background: rgba(217,124,0,0.10); }
 
-/* ── mini chart overlay (selection sparklines during playback) ── */
-#miniChart {
-  position: absolute; right: 14px; bottom: 14px; z-index: 7;
-  width: 340px; height: 178px; background: var(--panel-2); border: 1px solid var(--hairline-2);
-  border-radius: 6px; padding: 8px 10px 6px; display: none;
-  flex-direction: column; resize: both; overflow: hidden;
-  min-width: 250px; min-height: 96px;
-  box-shadow: 0 4px 18px rgba(0,0,0,0.35);
-}
-#miniChart.minimized { height: 32px !important; min-height: 32px; resize: none; }
-#miniChart.minimized #miniChartCanvas, #miniChart.minimized #miniLegend { display: none; }
-#miniChartHead { cursor: grab; user-select: none; }
-#miniChartHead:active { cursor: grabbing; }
-#miniChartHead button {
-  appearance: none; background: none; border: 0; color: var(--ink-faint);
-  font-size: 12px; cursor: pointer; padding: 0 4px;
-}
-#miniChartHead button:hover { color: var(--ink); }
-body.light #miniChart { box-shadow: 0 4px 18px rgba(40,50,70,0.18); }
-#miniChartHead { display: flex; align-items: center; margin-bottom: 4px; }
+/* ── chart pane (selection series, bottom strip) ─────────────── */
+#chartPane { flex: none; height: 170px; min-height: 0; border-top: 1px solid var(--hairline); }
 #miniChartTitle {
-  flex: 1; font: 600 9px/1.3 var(--mono); letter-spacing: 0.1em;
+  font: 600 9px/1.3 var(--mono); letter-spacing: 0.1em;
   color: var(--ink-dim); text-transform: uppercase;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
+#chartBody { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 6px 12px 6px; position: relative; }
 #miniChartCanvas { width: 100%; flex: 1; min-height: 0; display: block; }
 #miniLegend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; }
 #miniLegend span { font: 400 9px/1.4 var(--mono); color: var(--ink-dim); white-space: nowrap; }
 #miniLegend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+#chartEmpty {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--ink-faint); font: 400 11px var(--mono); pointer-events: none;
+}
+/* collapsed chart pane is a horizontal strip, not a vertical one */
+#chartPane.closed { flex: 0 0 30px !important; min-height: 30px; }
+#chartPane.closed .paneHead {
+  height: 30px; flex-direction: row; padding: 0 10px; gap: 10px; border-bottom: 0;
+}
+#chartPane.closed .paneTitle { writing-mode: initial; letter-spacing: 0.18em; }
+#chartPane.closed .tools { margin-left: auto; margin-top: 0; flex-direction: row; }
 
 /* ── settings popover ────────────────────────────────────────── */
 #settingsWrap { position: relative; }
