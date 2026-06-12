@@ -539,13 +539,13 @@ function buildCyStyle(theme) {
         'text-valign': 'top', 'text-margin-y': -4, color: c.groupLabel
     }},
     { selector: 'edge', style: {
-        width: 1.4, 'line-color': c.edge, 'target-arrow-color': c.edge,
-        'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'arrow-scale': 0.7,
+        width: 1.4, 'line-color': c.edge,
+        'target-arrow-shape': 'none', 'curve-style': 'bezier',
         opacity: 0.75, 'line-cap': mario ? 'round' : 'butt'
     }},
-    { selector: 'edge[fluid="Air"]', style: { 'line-color': c.air, 'target-arrow-color': c.air } },
-    { selector: 'edge[fluid="Water"]', style: { 'line-color': c.water, 'target-arrow-color': c.water } },
-    { selector: 'edge[kind="crossover"]', style: { 'line-style': 'dashed', 'line-color': c.crossover, 'target-arrow-color': c.crossover } },
+    { selector: 'edge[fluid="Air"]', style: { 'line-color': c.air } },
+    { selector: 'edge[fluid="Water"]', style: { 'line-color': c.water } },
+    { selector: 'edge[kind="crossover"]', style: { 'line-style': 'dashed', 'line-color': c.crossover } },
     { selector: '.faded', style: { opacity: 0.08, 'text-opacity': 0.08 } },
     { selector: '.linked', style: {
         'underlay-color': c.linked, 'underlay-opacity': mario ? 0.4 : 0.18, 'underlay-padding': 5, 'z-index': 8
@@ -555,7 +555,7 @@ function buildCyStyle(theme) {
         'underlay-color': c.sel, 'underlay-opacity': mario ? 0.55 : 0.34, 'underlay-padding': 7, 'z-index': 9
     }},
     { selector: 'node.sel', style: { 'border-width': 2, 'border-color': c.sel } },
-    { selector: 'edge.sel', style: { 'line-color': c.sel, 'target-arrow-color': c.sel, opacity: 1 } },
+    { selector: 'edge.sel', style: { 'line-color': c.sel, opacity: 1 } },
     { selector: ':selected', style: { 'overlay-opacity': 0 } }
   );
   return style;
@@ -936,10 +936,10 @@ function applyPlaybackToGraph() {
             ? (Number.isFinite(temp) ? colorForTemperature(temp, s.tempMin, s.tempMax) : '#56647c')
             : colorForFlow(flow, s.flowMax);
         }
-        edge.style({ width, 'line-color': color, 'target-arrow-color': color, opacity });
+        edge.style({ width, 'line-color': color, opacity });
         edge.toggleClass('flowing', util != null && util > 0.02);
       } else {
-        edge.style({ width: '', 'line-color': '', 'target-arrow-color': '', opacity: '' });
+        edge.style({ width: '', 'line-color': '', opacity: '' });
         edge.removeClass('flowing');
       }
     });
