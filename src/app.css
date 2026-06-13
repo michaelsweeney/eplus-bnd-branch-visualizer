@@ -208,6 +208,12 @@
   #inspector .conn .ct { color: var(--accent); font-weight: 600; }
   #inspector .conn .obj { color: var(--ink-dim); }
   #inspector .empty { color: var(--ink-faint); font-style: italic; }
+  /* clickable inspector references → drive the shared selection */
+  #inspectorBody span.ref { cursor: pointer; border-bottom: 1px dotted var(--ink-faint); }
+  #inspectorBody span.ref:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  #inspectorBody .conn.ref { cursor: pointer; }
+  #inspectorBody .conn.ref:hover { border-color: var(--accent-dim); background: rgba(255,198,107,0.07); }
+  body.light #inspectorBody .conn.ref:hover { background: rgba(217,124,0,0.07); }
   #inspector .hintList { color: var(--ink-dim); font: 400 11px/1.9 var(--mono); padding-left: 16px; margin: 8px 0; }
   .suspicious { color: var(--hot); font-weight: 600; }
 

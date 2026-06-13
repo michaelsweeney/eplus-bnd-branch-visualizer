@@ -967,6 +967,27 @@ function selectEdge(edge) {
   if (playback) updateTime();
 }
 
+// Select a fluid node by name (from an inspector ref). Prefer its visible
+// edge; if the node is hidden inside a collapsed unit, fall back to the
+// component that owns it so the click still lands somewhere coherent.
+function selectEdgeByNode(nodeName) {
+  if (cy) {
+    const edge = cy.edges().filter(e =>
+      String(e.data('label') || '').split(' ⇒ ')[0] === nodeName)[0];
+    if (edge && edge.nonempty()) { selectEdge(edge); return; }
+  }
+  const owner = graph && Object.values(graph.vertices).find(v =>
+    v.pairs.some(p => p.inlet === nodeName || p.outlet === nodeName));
+  if (owner) { selectVertex(owner.id); return; }
+  // last resort: node-only selection so the chart still tracks it
+  selection = { kind: 'edge', nodeName, title: nodeName, zoneName: null };
+  if (cy) cy.elements().removeClass('sel linked');
+  updateZoneHighlights();
+  renderSystemsTree();
+  updateMiniChart();
+  if (playback) updateTime();
+}
+
 /* ── mini chart: sparklines for the selection during playback ─── */
 // Each related series normalizes to its own range (mixed units), drawn
 // once into an offscreen cache; per-tick work is one blit + the time
@@ -1307,7 +1328,8 @@ function renderUnitInspector(u) {
   html += '<h3>members</h3>';
   html += u.members.map(id => {
     const v = graph.vertices[id];
-    return `<div class="conn"><span class="ct">${esc(v ? v.type : '')}</span><br><span class="obj">${esc(v ? v.name : id)}</span></div>`;
+    const inner = `<span class="ct">${esc(v ? v.type : '')}</span><br><span class="obj">${esc(v ? v.name : id)}</span>`;
+    return connBlock(id, inner);
   }).join('');
   $('inspectorBody').innerHTML = html;
 }
@@ -1322,19 +1344,43 @@ function kv(rows) {
   return `<table>${rows.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v}</td></tr>`).join('')}</table>`;
 }
 
+// Inspector reference links: every object/node/zone named in the sidebar
+// becomes a clickable ref that drives the shared selection (graph + 3D +
+// chart + inspector), via the delegated handler on #inspectorBody.
+// `inner` is already-safe HTML; `value` is escaped into the attribute.
+function ref(kind, value, inner) {
+  return `<span class="ref" data-rk="${kind}" data-rv="${esc(value)}">${inner}</span>`;
+}
+// a graph id that may be a real vertex or a collapsed unit proxy
+function idRef(id, inner) {
+  if (graph && graph.vertices[id]) return ref('vertex', id, inner);
+  if (units && units.units[id]) return ref('unit', id, inner);
+  return inner;
+}
+// a .conn card, made clickable only when the named object is selectable
+function connBlock(vid, inner) {
+  const selectable = graph && graph.vertices[vid];
+  return `<div class="conn${selectable ? ' ref' : ''}"` +
+    (selectable ? ` data-rk="vertex" data-rv="${esc(vid)}"` : '') + `>${inner}</div>`;
+}
+
 function nodeInfoRow(name) {
   const info = model && model.nodes[name];
-  if (!info) return esc(name);
-  return `${esc(name)} <span style="color:var(--ink-faint)">(${esc(info.fluidType)}` +
-    (info.suspicious ? ', <span class="suspicious">suspicious</span>' : '') + ')</span>';
+  const inner = info
+    ? `${esc(name)} <span style="color:var(--ink-faint)">(${esc(info.fluidType)}` +
+      (info.suspicious ? ', <span class="suspicious">suspicious</span>' : '') + ')</span>'
+    : esc(name);
+  return ref('node', name, inner);
 }
 
 function connectionsHtml(nodeNames) {
   const out = [];
   for (const n of nodeNames) {
     for (const c of (graph && graph.connectionsByNode[n]) || []) {
-      out.push(`<div class="conn"><span class="ct">${esc(c.connectionType)}</span> @ ${esc(n)}<br>` +
-        `<span class="obj">${esc(c.objectType)} — ${esc(c.objectName)}</span></div>`);
+      const vid = `${c.objectType}|${c.objectName}`;
+      const inner = `<span class="ct">${esc(c.connectionType)}</span> @ ${esc(n)}<br>` +
+        `<span class="obj">${esc(c.objectType)} — ${esc(c.objectName)}</span>`;
+      out.push(connBlock(vid, inner));
     }
   }
   return out.length ? out.join('') : '<span class="empty">none</span>';
@@ -1383,7 +1429,7 @@ function renderVertexInspector(v) {
   const rows = [];
   if (v.branch) rows.push(['branch', esc(v.branch)]);
   if (v.group) rows.push(['loop', esc(v.group.replace('loop|', ''))]);
-  if (v.zone) rows.push(['serves zone', esc(v.zone)]);
+  if (v.zone) rows.push(['serves zone', ref('zone', v.zone, esc(v.zone))]);
   if (rows.length) html += kv(rows);
   html += '<h3>node pairs</h3><table>';
   for (const p of v.pairs) {
@@ -1398,8 +1444,8 @@ function renderEdgeInspector(d, names) {
   let html = `<h2>${names.map(esc).join('<br>⇓<br>')}</h2>` +
     `<span class="kindChip">${d.kind === 'crossover' ? 'IMPLICIT LOOP INTERFACE' : 'FLUID NODE'}</span>`;
   html += kv([
-    ['from', esc(String(d.source).split('|')[1])],
-    ['to', esc(String(d.target).split('|')[1])],
+    ['from', idRef(d.source, esc(String(d.source).split('|')[1] ?? d.source))],
+    ['to', idRef(d.target, esc(String(d.target).split('|')[1] ?? d.target))],
     ['fluid', esc(d.fluid || '—')]
   ]);
   html += '<h3>objects touching this node</h3>' + connectionsHtml(names);
@@ -1869,6 +1915,29 @@ $('zoneOpacity').addEventListener('input', () => {
 $('miniChartCanvas').addEventListener('mousemove', onChartHover);
 $('miniChartCanvas').addEventListener('mouseleave', () => {
   hoverIndex = null; $('chartTip').hidden = true; drawMiniChart();
+});
+
+/* inspector reference links: click any named object/node/zone to select
+   it across all views (graph + 3D + chart + inspector) */
+$('inspectorBody').addEventListener('click', e => {
+  const el = e.target.closest('.ref');
+  if (!el || !graph) return;
+  const kind = el.dataset.rk;
+  const val = el.dataset.rv;
+  if (kind === 'vertex') {
+    if (!graph.vertices[val]) return;
+    const node = cy && cy.getElementById(val);
+    if (node && node.nonempty()) { selectVertex(val); return; }
+    const uid = units && units.unitOf[val]; // hidden in a collapsed unit
+    if (uid && cy && cy.getElementById(uid).nonempty()) selectUnit(uid, { jump: true });
+    else selectVertex(val);
+  } else if (kind === 'node') {
+    selectEdgeByNode(val);
+  } else if (kind === 'zone') {
+    selectZone(val);
+  } else if (kind === 'unit') {
+    selectUnit(val, { jump: true });
+  }
 });
 
 /* ── graph context menu ──────────────────────────────────────── */
