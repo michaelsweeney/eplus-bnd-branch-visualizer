@@ -26,6 +26,7 @@ let selectedTimeIndex = 0;
 let currentMetric = 'system';
 let loopFunctionColors = null; // loopName -> hex, from classifyLoops()
 let currentTheme = 'dark';
+let zoneOpacity = 0.5;         // opacity of non-selected 3D zones (slider)
 let units = null;             // { units, unitOf } from assignUnits
 let collapsedSet = new Set(); // unit ids currently collapsed
 let hiddenSet = new Set();    // unit ids currently not displayed at all
@@ -195,11 +196,21 @@ function buildCyStyle(theme) {
     { selector: 'edge', style: {
         width: 1.4, 'line-color': c.edge,
         'target-arrow-shape': 'none', 'curve-style': 'bezier',
-        opacity: 0.75
+        opacity: 0.75,
+        // node-state readout (temp/flow at current time) — only sel/linked
+        // edges carry a non-empty stateLabel (set in applyPlaybackToGraph)
+        label: 'data(stateLabel)', 'font-size': 8, 'font-family': c.font,
+        color: c.label, 'text-background-color': c.nodeBg,
+        'text-background-opacity': 0.92, 'text-background-padding': 2,
+        'text-background-shape': 'roundrectangle', 'edge-text-rotation': 'none',
+        'text-events': 'no'
     }},
     { selector: 'edge[fluid="Air"]', style: { 'line-color': c.air } },
     { selector: 'edge[fluid="Water"]', style: { 'line-color': c.water } },
     { selector: 'edge[kind="crossover"]', style: { 'line-style': 'dashed', 'line-color': c.crossover } },
+    { selector: 'edge.sel, edge.linked', style: {
+        color: c.sel, 'font-weight': 'bold', 'text-background-opacity': 0.96, 'z-index': 20
+    }},
     { selector: '.faded', style: { opacity: 0.08, 'text-opacity': 0.08 } },
     { selector: '.linked', style: {
         'underlay-color': c.linked, 'underlay-opacity': 0.18, 'underlay-padding': 5, 'z-index': 8
@@ -802,6 +813,7 @@ function applyPlaybackToGraph() {
         edge.style({ width: '', 'line-color': '', opacity: '' });
         edge.removeClass('flowing');
       }
+      setEdgeStateLabel(edge, temp, flow);
     });
     cy.nodes('[?isZone]').forEach(zoneBox => {
       const zoneName = String(zoneBox.data('id') || '').split('|')[1] || zoneBox.data('label');
@@ -814,6 +826,24 @@ function applyPlaybackToGraph() {
       }
     });
   });
+}
+
+// Node-state readout: when a selection is active and a time is set, each
+// selected/linked edge labels its fluid node with the current value (the
+// active metric; system mode shows temperature). Non-selected edges keep
+// an empty label so the graph stays clean.
+function setEdgeStateLabel(edge, temp, flow) {
+  let next = '';
+  if (selection && (edge.hasClass('sel') || edge.hasClass('linked'))) {
+    const useFlow = currentMetric === 'massFlow';
+    const val = useFlow ? flow : temp;
+    if (Number.isFinite(val)) {
+      next = useFlow
+        ? `${dispFlow(val).toFixed(2)} ${flowUnit()}`
+        : `${dispTemp(val).toFixed(1)} ${tempUnit()}`;
+    }
+  }
+  if ((edge.data('stateLabel') || '') !== next) edge.data('stateLabel', next);
 }
 
 // Directional flow motion: marching dashes on edges with live flow, only
@@ -945,6 +975,8 @@ const MINI_COLORS = ['#e0a33b', '#4f9dd9', '#52b788', '#d96a6a'];
 let miniSeries = [];
 let miniCache = null;
 let miniPlot = null; // plot-rect padding so the marker tracks the axes
+let miniGeom = null; // full plot geometry (device px) for hover + scrubber align
+let hoverIndex = null; // chart hover sample index (null = not hovering)
 
 function computeMiniSeries() {
   if (!playback || !selection) return [];
@@ -1010,9 +1042,15 @@ function updateMiniChart() {
   const empty = miniSeries.length === 0;
   $('chartEmpty').style.display = empty ? 'flex' : 'none';
   $('miniChartCanvas').style.visibility = empty ? 'hidden' : 'visible';
-  if (empty) { miniCache = null; return; }
+  if (empty) {
+    miniCache = null; miniGeom = null; hoverIndex = null;
+    $('chartTip').hidden = true;
+    alignScrubber();
+    return;
+  }
   renderMiniCache();
   drawMiniChart();
+  alignScrubber();
 }
 
 function renderMiniCache() {
@@ -1058,6 +1096,7 @@ function renderMiniCache() {
   miniPlot = { l: padL, r: padR };
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
+  miniGeom = { dpr, padL, padR, padT, padB, plotW, plotH, w, h, ranges };
 
   const ink = currentTheme === 'light' ? '#97a3b4' : '#4d5a6e';
   const inkStrong = currentTheme === 'light' ? '#5d6b7e' : '#7c8aa0';
@@ -1110,16 +1149,107 @@ function drawMiniChart() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(miniCache, 0, 0);
   const n = ((playback && playback.times) || []).length;
-  if (n > 1) {
-    const plot = miniPlot || { l: 0, r: 0 };
-    const x = plot.l + (selectedTimeIndex / (n - 1)) * (canvas.width - plot.l - plot.r);
-    ctx.strokeStyle = currentTheme === 'light' ? '#d97c00' : '#ffc66b';
-    ctx.lineWidth = 1;
+  if (n < 2) return;
+  const plot = miniPlot || { l: 0, r: 0 };
+  const xAt = idx => plot.l + (idx / (n - 1)) * (canvas.width - plot.l - plot.r);
+
+  // playback time marker (amber)
+  const px = xAt(selectedTimeIndex);
+  ctx.strokeStyle = currentTheme === 'light' ? '#d97c00' : '#ffc66b';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(px, 0);
+  ctx.lineTo(px, canvas.height);
+  ctx.stroke();
+
+  // hover crosshair + value dots on each series
+  if (hoverIndex != null && miniGeom) {
+    const g = miniGeom;
+    const hx = xAt(hoverIndex);
+    ctx.strokeStyle = currentTheme === 'light' ? '#5d6b7e' : '#aebdd3';
+    ctx.globalAlpha = 0.85;
     ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, canvas.height);
+    ctx.moveTo(hx, g.padT);
+    ctx.lineTo(hx, g.padT + g.plotH);
     ctx.stroke();
+    ctx.globalAlpha = 1;
+    miniSeries.forEach((sr, i) => {
+      const r = g.ranges[sr.kind];
+      const v = sr.values[hoverIndex];
+      if (!r || !Number.isFinite(v)) return;
+      const y = g.padT + g.plotH - ((v - r.min) / (r.max - r.min)) * g.plotH;
+      ctx.fillStyle = MINI_COLORS[i];
+      ctx.beginPath();
+      ctx.arc(hx, y, 2.6 * g.dpr, 0, Math.PI * 2);
+      ctx.fill();
+    });
   }
+}
+
+// hover tooltip: vertical list of datetime + each series value at the
+// hovered x. Pointer-events stay off the tip so it never steals the hover.
+const seriesShortLabel = sr => String(sr.label).split(' · ')[0];
+
+function chartIndexFromEvent(ev) {
+  if (!miniGeom || !miniSeries.length) return null;
+  const rect = $('miniChartCanvas').getBoundingClientRect();
+  const plotL = miniGeom.padL / miniGeom.dpr;
+  const plotR = rect.width - miniGeom.padR / miniGeom.dpr;
+  const x = ev.clientX - rect.left;
+  if (x < plotL - 3 || x > plotR + 3) return null;
+  const n = ((playback && playback.times) || []).length;
+  if (n < 2) return null;
+  const frac = Math.max(0, Math.min(1, (x - plotL) / (plotR - plotL)));
+  return Math.round(frac * (n - 1));
+}
+
+function onChartHover(ev) {
+  const idx = chartIndexFromEvent(ev);
+  const tip = $('chartTip');
+  if (idx == null) { hoverIndex = null; tip.hidden = true; drawMiniChart(); return; }
+  hoverIndex = idx;
+  const t = playback.times[idx];
+  let html = `<div class="tipDate">${esc(t ? t.label : '')}</div>`;
+  miniSeries.forEach((sr, i) => {
+    const v = sr.values[idx];
+    const conv = sr.kind === 'flow' ? dispFlow : dispTemp;
+    const unit = sr.kind === 'flow' ? flowUnit() : tempUnit();
+    const txt = Number.isFinite(v) ? `${conv(v).toFixed(sr.kind === 'flow' ? 2 : 1)} ${unit}` : '—';
+    html += `<div class="tipRow"><i style="background:${MINI_COLORS[i]}"></i>${esc(seriesShortLabel(sr))}<b>${esc(txt)}</b></div>`;
+  });
+  tip.innerHTML = html;
+  tip.hidden = false;
+  const body = $('chartBody').getBoundingClientRect();
+  const tr = tip.getBoundingClientRect();
+  let lx = ev.clientX - body.left + 14;
+  let ly = ev.clientY - body.top + 12;
+  if (lx + tr.width > body.width) lx = ev.clientX - body.left - tr.width - 14;
+  if (ly + tr.height > body.height) ly = body.height - tr.height - 4;
+  tip.style.left = `${Math.max(2, lx)}px`;
+  tip.style.top = `${Math.max(2, ly)}px`;
+  drawMiniChart();
+}
+
+// Keep the transport scrubber the same width as the chart's plot area so
+// the slider thumb sits directly under the chart's time marker. Falls back
+// to spanning between the readout and speed selector when no chart is up.
+function alignScrubber() {
+  const wrap = $('scrubWrap');
+  if (!wrap) return;
+  const tRect = $('transport').getBoundingClientRect();
+  const minLeft = $('readout').getBoundingClientRect().right - tRect.left + 16;
+  const minRight = tRect.right - $('playSpeed').getBoundingClientRect().left + 16;
+  let left = minLeft, right = minRight;
+  const chartOn = miniSeries.length && miniGeom && !$('chartPane').classList.contains('closed');
+  if (chartOn) {
+    const cRect = $('miniChartCanvas').getBoundingClientRect();
+    const pl = cRect.left + miniGeom.padL / miniGeom.dpr;
+    const pr = cRect.left + cRect.width - miniGeom.padR / miniGeom.dpr;
+    left = Math.max(minLeft, pl - tRect.left);
+    right = Math.max(minRight, tRect.right - pr);
+  }
+  wrap.style.left = `${left}px`;
+  wrap.style.right = `${right}px`;
 }
 
 function onGraphNodeTap(n) {
@@ -1615,17 +1745,17 @@ function updateZoneHighlights() {
     const isSel = selectedZone && upper(child.userData.zoneName) === selectedZone;
     if (isSel) {
       child.material.color.set('#ffc66b');
-      child.material.opacity = 0.85;
+      child.material.opacity = Math.max(0.85, zoneOpacity);
       continue;
     }
     const series = zoneSeriesFor(child.userData.zoneName);
     const temp = series && series.temperature && series.temperature.values[selectedTimeIndex];
     if (Number.isFinite(temp)) {
       child.material.color.set(colorForTemperature(temp, s.zoneMin, s.zoneMax));
-      child.material.opacity = selectedZone ? 0.18 : 0.55;
+      child.material.opacity = zoneOpacity;
     } else {
       child.material.color.setHex(child.userData.baseColor);
-      child.material.opacity = selectedZone ? 0.14 : 0.4;
+      child.material.opacity = zoneOpacity * 0.7;
     }
   }
   renderThree();
@@ -1730,6 +1860,16 @@ $('layoutMode').addEventListener('change', () => {
 });
 $('fit').addEventListener('click', () => { if (cy) cy.fit(undefined, 30); });
 $('resetCam').addEventListener('click', fitThreeCamera);
+$('zoneOpacity').addEventListener('input', () => {
+  zoneOpacity = Number($('zoneOpacity').value) / 100;
+  updateZoneHighlights();
+});
+
+/* chart hover crosshair + tooltip */
+$('miniChartCanvas').addEventListener('mousemove', onChartHover);
+$('miniChartCanvas').addEventListener('mouseleave', () => {
+  hoverIndex = null; $('chartTip').hidden = true; drawMiniChart();
+});
 
 /* ── graph context menu ──────────────────────────────────────── */
 // Right-click actions: per-object collapse/expand/hide moved here from
@@ -1838,6 +1978,7 @@ new ResizeObserver(() => {
     renderMiniCache();
     drawMiniChart();
   }
+  alignScrubber();
 }).observe($('chartPane'));
 
 for (const btn of document.querySelectorAll('#themeToggle button')) {
@@ -1876,12 +2017,13 @@ window.addEventListener('keydown', e => {
   }
 });
 
-window.addEventListener('resize', () => { resizeThree(); });
+window.addEventListener('resize', () => { resizeThree(); alignScrubber(); });
 
 /* panel grabbers + per-panel collapse */
 function viewsResized() {
   if (cy) cy.resize();
   resizeThree();
+  alignScrubber();
 }
 
 function wireSplitter(splitter, onDrag) {

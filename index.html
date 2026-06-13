@@ -96,6 +96,9 @@
         <div class="paneHead">
           <span class="paneTitle">ZONES 3D</span>
           <div class="tools">
+            <label class="headSlider" title="opacity of non-selected zones">opacity
+              <input type="range" id="zoneOpacity" min="5" max="100" value="50">
+            </label>
             <button class="toolBtn" id="resetCam">reset view</button>
             <button class="toolBtn paneToggle" data-target="zonePane">—</button>
           </div>
@@ -116,6 +119,7 @@
         <canvas id="miniChartCanvas"></canvas>
         <div id="miniLegend"></div>
         <div id="chartEmpty">select a component, zone, edge, or unit to chart its series</div>
+        <div id="chartTip" hidden></div>
       </div>
     </div>
   </div>

@@ -216,6 +216,7 @@
     flex: none; height: 64px; display: flex; align-items: center; gap: 16px;
     padding: 0 16px; border-top: 1px solid var(--hairline);
     background: linear-gradient(0deg, #11161f, #0e1218);
+    position: relative;
   }
   #playBtn {
     appearance: none; width: 38px; height: 38px; border-radius: 50%;
@@ -230,7 +231,12 @@
     white-space: nowrap;
   }
   #readout small { display: block; font-weight: 400; font-size: 10px; color: var(--ink-dim); }
-  #scrubWrap { flex: 1; position: relative; padding-top: 10px; }
+  /* scrubber is absolutely positioned so JS can line it up with the chart
+     plot's x-axis (alignScrubber); playSpeed pins to the right */
+  #scrubWrap {
+    position: absolute; top: 17px; left: 230px; right: 130px;
+  }
+  #playSpeed { margin-left: auto; }
   #timeSlider {
     appearance: none; width: 100%; height: 4px; border-radius: 2px;
     background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--progress, 0%), var(--track, #2a3445) var(--progress, 0%));
@@ -308,6 +314,37 @@ body.light .sysRow.selected { background: rgba(217,124,0,0.10); }
 #chartEmpty {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   color: var(--ink-faint); font: 400 11px var(--mono); pointer-events: none;
+}
+#chartBody { cursor: crosshair; }
+#chartTip {
+  position: absolute; z-index: 12; pointer-events: none;
+  background: var(--panel-2); border: 1px solid var(--hairline-2); border-radius: 5px;
+  padding: 6px 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  font: 400 10px/1.5 var(--mono); color: var(--ink); white-space: nowrap;
+}
+#chartTip[hidden] { display: none; }
+#chartTip .tipDate { color: var(--ink-dim); font-weight: 600; margin-bottom: 3px; letter-spacing: 0.04em; }
+#chartTip .tipRow { display: flex; align-items: center; gap: 6px; }
+#chartTip .tipRow i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+#chartTip .tipRow b { color: var(--ink); font-weight: 600; margin-left: auto; padding-left: 8px; }
+body.light #chartTip { box-shadow: 0 4px 14px rgba(40,50,70,0.18); }
+
+/* slider embedded in a pane head (3D zone opacity) */
+.headSlider {
+  display: flex; align-items: center; gap: 6px;
+  font: 500 9px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.headSlider input[type="range"] {
+  appearance: none; width: 72px; height: 3px; border-radius: 2px;
+  background: var(--track, #2a3445); outline: none; cursor: pointer;
+}
+.headSlider input[type="range"]::-webkit-slider-thumb {
+  appearance: none; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--accent); border: 2px solid var(--panel);
+}
+.headSlider input[type="range"]::-moz-range-thumb {
+  width: 9px; height: 9px; border-radius: 50%; background: var(--accent); border: 2px solid var(--panel);
 }
 /* collapsed chart pane is a horizontal strip, not a vertical one */
 #chartPane.closed { flex: 0 0 30px !important; min-height: 30px; }
