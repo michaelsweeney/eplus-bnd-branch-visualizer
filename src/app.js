@@ -318,16 +318,41 @@ function defaultCollapsedSet() {
 const SYS_SECTIONS = [['ahu', 'AIR LOOPS'], ['plant', 'PLANT'], ['dist', 'DISTRIBUTION'], ['zoneeq', 'ZONE EQUIPMENT']];
 const sysSectionOpen = { ahu: true, plant: true, dist: true, zoneeq: false };
 
-// grouping toggle glyph: [−] expanded (members drawn individually),
-// [+] grouped (collapsed to one unit box), [±] mixed (section/all only).
-// Distinct from the show/hide checkbox so the two columns don't read alike;
-// colored by state (expanded green) so the state pops at a glance.
-const groupGlyph = state => state === 'grouped' ? '[+]' : state === 'mixed' ? '[±]' : '[−]';
-const groupState = (expanded, total) => expanded === total ? 'expanded' : expanded === 0 ? 'grouped' : 'mixed';
-function setGroupBtn(btn, state) {
-  btn.textContent = groupGlyph(state);
-  btn.classList.remove('g-expanded', 'g-grouped', 'g-mixed');
-  btn.classList.add('g-' + state);
+// One per-row "detail level" control instead of two booleans: a unit is
+// shown in full DETAIL (every component), GROUPED (collapsed to one box),
+// or HIDDEN. These are a single ordinal axis — how much do I want to see —
+// so a 3-segment control reads far clearer than a group toggle + a
+// show/hide checkbox (whose hidden+expanded combo was meaningless).
+const DETAIL_SEG = [['detail', '●'], ['grouped', '◐'], ['hidden', '○']];
+
+function unitDetail(id) {
+  if (hiddenSet.has(id)) return 'hidden';
+  if (collapsedSet.has(id)) return 'grouped';
+  return 'detail';
+}
+// aggregate state for a section / the master row (null = mixed)
+function aggDetail(ids) {
+  const set = new Set(ids.map(unitDetail));
+  return set.size === 1 ? [...set][0] : null;
+}
+function detailSegHtml(active, dataAttr) {
+  return '<span class="detailSeg">' + DETAIL_SEG.map(([s, g]) =>
+    `<button class="dseg s-${s}${active === s ? ' on' : ''}" data-state="${s}"${dataAttr} ` +
+    `title="${s === 'detail' ? 'show in full detail' : s === 'grouped' ? 'collapse to one box' : 'hide'}">${g}</button>`
+  ).join('') + '</span>';
+}
+// set the detail level for a set of units in one rebuild
+function applyDetail(ids, state) {
+  const c = new Set(collapsedSet);
+  const h = new Set(hiddenSet);
+  for (const id of ids) {
+    if (state === 'hidden') h.add(id);
+    else if (state === 'grouped') { h.delete(id); c.add(id); }
+    else { h.delete(id); c.delete(id); }
+  }
+  collapsedSet = c;
+  hiddenSet = h;
+  rebuildDisplay();
 }
 
 function renderSystemsTree() {
@@ -339,8 +364,7 @@ function renderSystemsTree() {
   const allIds = Object.keys(units.units);
   let html = `<div class="sysHead sysMaster">
     <span class="sysCaretPad"></span>
-    <button class="sysGroupAll" title="expand / group everything"></button>
-    <input type="checkbox" class="sysAllVisG" title="show / hide everything">
+    ${detailSegHtml(aggDetail(allIds), ' data-all="1"')}
     <span class="sysTitle">ALL SYSTEMS</span>
     <span class="sysCount">${allIds.length}</span>
   </div>`;
@@ -353,16 +377,14 @@ function renderSystemsTree() {
     html += `<div class="sysSection">
       <div class="sysHead">
         <button class="sysCaret" data-type="${type}">${open ? '▾' : '▸'}</button>
-        <button class="sysGroupSec" data-type="${type}" title="expand / group all"></button>
-        <input type="checkbox" class="sysAllVis" data-type="${type}" title="show / hide all">
+        ${detailSegHtml(aggDetail(list.map(u => u.id)), ` data-type="${type}"`)}
         <span class="sysTitle">${title}</span>
         <span class="sysCount">${list.length}</span>
       </div>
       <div class="sysList" data-type="${type}" style="display:${open ? 'block' : 'none'}">` +
       list.map(u => `
         <div class="sysRow${selectedUnitIdForTree() === u.id ? ' selected' : ''}${hiddenSet.has(u.id) ? ' off' : ''}" data-unit="${esc(u.id)}">
-          <button class="sysGroup g-${collapsedSet.has(u.id) ? 'grouped' : 'expanded'}" data-unit="${esc(u.id)}" title="${collapsedSet.has(u.id) ? 'grouped — click to expand' : 'expanded — click to group'}">${groupGlyph(collapsedSet.has(u.id) ? 'grouped' : 'expanded')}</button>
-          <input type="checkbox" class="sysVis" data-unit="${esc(u.id)}" title="shown / hidden" ${hiddenSet.has(u.id) ? '' : 'checked'}>
+          ${detailSegHtml(unitDetail(u.id), ` data-unit="${esc(u.id)}"`)}
           <span class="sysLabel" data-unit="${esc(u.id)}" title="${esc(u.label)} — click to select">${esc(u.label)}</span>
           <span class="sysCount">${u.members.length}</span>
         </div>`).join('') +
@@ -370,67 +392,19 @@ function renderSystemsTree() {
   }
   root.innerHTML = html;
 
-  // grouping toggles ([−]/[+]/[±]) — per unit, per section, and master
-  for (const btn of root.querySelectorAll('.sysGroup')) {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.unit;
-      const next = new Set(collapsedSet);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      setCollapsed(next);
-    });
-  }
-  for (const box of root.querySelectorAll('.sysVis')) {
-    box.addEventListener('change', () => {
-      const next = new Set(hiddenSet);
-      if (box.checked) next.delete(box.dataset.unit);
-      else next.add(box.dataset.unit);
-      setHidden(next);
-    });
-  }
-  for (const btn of root.querySelectorAll('.sysGroupSec')) {
-    const type = btn.dataset.type;
-    const ids = Object.values(units.units).filter(u => u.type === type).map(u => u.id);
-    const expanded = ids.filter(id => !collapsedSet.has(id)).length;
-    setGroupBtn(btn, groupState(expanded, ids.length));
-    btn.addEventListener('click', () => {
-      const allExpanded = ids.every(id => !collapsedSet.has(id));
-      const next = new Set(collapsedSet);
-      for (const id of ids) { if (allExpanded) next.add(id); else next.delete(id); }
-      setCollapsed(next);
-    });
-  }
-  const masterG = root.querySelector('.sysGroupAll');
-  const masterV = root.querySelector('.sysAllVisG');
-  const expandedAll = allIds.filter(id => !collapsedSet.has(id)).length;
-  setGroupBtn(masterG, groupState(expandedAll, allIds.length));
-  masterG.addEventListener('click', () => {
-    const allExpanded = allIds.every(id => !collapsedSet.has(id));
-    if (allExpanded) {
-      setCollapsed(new Set(allIds));
-    } else {
-      if ($('layoutMode').value === 'units') $('layoutMode').value = 'system';
-      setCollapsed(new Set());
-    }
-  });
-  const shownAll = allIds.filter(id => !hiddenSet.has(id)).length;
-  masterV.checked = shownAll === allIds.length;
-  masterV.indeterminate = shownAll > 0 && shownAll < allIds.length;
-  masterV.addEventListener('change', () => {
-    setHidden(masterV.checked ? new Set() : new Set(allIds));
-  });
-  for (const all of root.querySelectorAll('.sysAllVis')) {
-    const type = all.dataset.type;
-    const ids = Object.values(units.units).filter(u => u.type === type).map(u => u.id);
-    const shown = ids.filter(id => !hiddenSet.has(id)).length;
-    all.checked = shown === ids.length;
-    all.indeterminate = shown > 0 && shown < ids.length;
-    all.addEventListener('change', () => {
-      const next = new Set(hiddenSet);
-      for (const id of ids) {
-        if (all.checked) next.delete(id);
-        else next.add(id);
-      }
-      setHidden(next);
+  // one detail-level control per row (unit / section / master); a segment
+  // click sets every unit in scope to that level
+  for (const seg of root.querySelectorAll('.dseg')) {
+    seg.addEventListener('click', () => {
+      const state = seg.dataset.state;
+      let ids;
+      if (seg.dataset.unit) ids = [seg.dataset.unit];
+      else if (seg.dataset.type) ids = Object.values(units.units).filter(u => u.type === seg.dataset.type).map(u => u.id);
+      else ids = Object.keys(units.units);
+      // 'units' overview layout needs proxies; expanding-all drops back to system
+      if (state === 'detail' && seg.dataset.all && $('layoutMode').value === 'units')
+        $('layoutMode').value = 'system';
+      applyDetail(ids, state);
     });
   }
   for (const caret of root.querySelectorAll('.sysCaret')) {
@@ -695,6 +669,23 @@ function updateLegend() {
   set('scaleFlowMax', eff.flowMax == null ? null : dispFlow(eff.flowMax));
   $('legendTempUnitLbl').textContent = tempUnit();
   $('legendFlowUnitLbl').textContent = flowUnit();
+  updateLegendForMetric();
+}
+
+// Legend shows only what the active metric uses: the System palette key
+// (what the colors mean) for System, the temp ramp + scale for
+// Temperature, the flow bar + scale for Flow. Avoids showing temp/flow
+// scale inputs that don't apply to the current coloring.
+function updateLegendForMetric() {
+  const m = currentMetric;
+  $('legendSystem').style.display = m === 'system' ? 'flex' : 'none';
+  $('legendTemp').style.display = m === 'temperature' ? 'flex' : 'none';
+  $('legendFlow').style.display = m === 'massFlow' ? 'flex' : 'none';
+  if (m === 'system') {
+    $('legendSystem').innerHTML = [['air', 'Air'], ['hw', 'HW'], ['chw', 'CHW'], ['cw', 'CW']]
+      .map(([k, lbl]) => `<span class="sysKey"><i style="background:${SYSTEM_PALETTE[k]}"></i>${lbl}</span>`)
+      .join('');
+  }
 }
 
 for (const [id, key, toSi] of [
@@ -2084,6 +2075,7 @@ for (const btn of document.querySelectorAll('#metric button')) {
   btn.addEventListener('click', () => {
     currentMetric = btn.dataset.metric;
     for (const b of document.querySelectorAll('#metric button')) b.classList.toggle('on', b === btn);
+    updateLegendForMetric();
     if (playback) updateTime();
   });
 }

@@ -61,6 +61,9 @@
   /* legend */
   #legend { display: flex; gap: 14px; align-items: center; }
   .legendItem { display: flex; align-items: center; gap: 6px; font: 400 10px/1 var(--mono); color: var(--ink-dim); }
+  #legendSystem { gap: 11px; }
+  .sysKey { display: inline-flex; align-items: center; gap: 4px; }
+  .sysKey i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
   .legendBar { width: 84px; height: 6px; border-radius: 2px; }
   #legendTempBar { background: linear-gradient(to right, #2747c9, #2fa3c9, #3fae62, #c9b53a, #e0492f); }
   #legendFlowBar { background: linear-gradient(to right, #16303c, #1d6a83, #2aa7c4, #59e0f2); }
@@ -176,17 +179,20 @@
   }
   .sysLabel:hover { color: var(--accent); }
   #systems input[type="checkbox"] { accent-color: var(--accent); margin: 0; cursor: pointer; }
-  /* grouping toggle: [−] expanded / [+] grouped / [±] mixed — a tree
-     affordance, deliberately not a checkbox so it reads apart from show/hide */
-  .sysGroup, .sysGroupSec, .sysGroupAll {
-    appearance: none; background: none; border: 0; padding: 0; flex: none;
-    width: 24px; text-align: center; cursor: pointer;
-    font: 600 11px/1 var(--mono); letter-spacing: -1px; color: var(--ink-dim);
+  /* detail-level control: ● detail / ◐ grouped / ○ hidden — a single
+     ordinal "how much do I want to see" dial, one segment lit per state */
+  .detailSeg { display: inline-flex; flex: none; gap: 0; }
+  .dseg {
+    appearance: none; background: none; border: 0; padding: 0; width: 13px;
+    text-align: center; cursor: pointer; opacity: 0.4;
+    font: 10px/1 var(--mono); color: var(--ink-faint);
+    transition: opacity 0.1s, color 0.1s;
   }
-  .sysGroup.g-expanded, .sysGroupSec.g-expanded, .sysGroupAll.g-expanded { color: var(--air); }
-  .sysGroup.g-grouped, .sysGroupSec.g-grouped, .sysGroupAll.g-grouped { color: var(--ink-faint); }
-  .sysGroup.g-mixed, .sysGroupSec.g-mixed, .sysGroupAll.g-mixed { color: var(--accent); }
-  .sysGroup:hover, .sysGroupSec:hover, .sysGroupAll:hover { filter: brightness(1.4); }
+  .dseg:hover { opacity: 0.85; }
+  .dseg.on { opacity: 1; }
+  .dseg.on.s-detail { color: var(--air); }
+  .dseg.on.s-grouped { color: var(--accent); }
+  .dseg.on.s-hidden { color: var(--ink-dim); }
 
   /* ── inspector sidebar ───────────────────────────────────── */
   #inspector {
@@ -423,8 +429,6 @@ body.light #ctxMenu { box-shadow: 0 8px 26px rgba(40,50,70,0.2); }
 .ctxItem:hover { background: rgba(255,198,107,0.12); color: var(--accent); }
 .ctxSep { height: 1px; background: var(--hairline); margin: 4px 2px; }
 
-/* visibility column in the systems tree */
-#systems input.sysVis, #systems input.sysAllVis, #systems input.sysAllVisG { accent-color: var(--water); }
 .sysRow.off .sysLabel, .sysRow.off .sysCount { opacity: 0.4; }
 .sysMaster { margin-bottom: 10px; border-bottom: 1px solid var(--hairline-2); }
 .sysCaretPad { width: 16px; flex: none; }

@@ -24,10 +24,11 @@
   </div>
   <div id="spacer"></div>
   <div id="legend">
-    <div class="legendItem"><span>temp</span><span class="legendBar" id="legendTempBar"></span>
+    <div class="legendItem" id="legendSystem"></div>
+    <div class="legendItem" id="legendTemp"><span>temp</span><span class="legendBar" id="legendTempBar"></span>
       <input class="scaleIn" id="scaleTempMin" title="temp scale min (blank = auto)"> –
       <input class="scaleIn" id="scaleTempMax" title="temp scale max (blank = auto)"> <span id="legendTempUnitLbl">°C</span></div>
-    <div class="legendItem"><span>flow</span><span class="legendBar" id="legendFlowBar"></span>
+    <div class="legendItem" id="legendFlow"><span>flow</span><span class="legendBar" id="legendFlowBar"></span>
       0 – <input class="scaleIn" id="scaleFlowMax" title="flow scale max (blank = auto)"> <span id="legendFlowUnitLbl">kg/s</span></div>
   </div>
   <div id="settingsWrap">
@@ -66,7 +67,7 @@
       </div>
     </div>
     <div id="systemsBody">
-      <div class="sysLegend">[−] expanded / [+] grouped · ☑ shown / ☐ hidden</div>
+      <div class="sysLegend"><span style="color:var(--air)">●</span> detail · <span style="color:var(--accent)">◐</span> grouped · ○ hidden — click to set</div>
       <div id="systemsTree"><span class="empty">no dataset</span></div>
     </div>
   </div>
