@@ -52,7 +52,11 @@ function loadText(name, text) {
   model = parseBnd(text);
   graph = buildGraph(model);
   units = assignUnits(model, graph);
-  collapsedSet = defaultCollapsedSet();
+  // the 'units' overview needs every unit grouped; seed it that way at load
+  // so applyLayout's fallback guard doesn't trip on the default expanded set
+  collapsedSet = $('layoutMode').value === 'units'
+    ? new Set(Object.keys(units.units))
+    : defaultCollapsedSet();
   hiddenSet = new Set();
   for (const el of graph.elements)
     if (!el.data.source) el.data.origParent = el.data.parent || null;
@@ -401,10 +405,7 @@ function renderSystemsTree() {
       if (seg.dataset.unit) ids = [seg.dataset.unit];
       else if (seg.dataset.type) ids = Object.values(units.units).filter(u => u.type === seg.dataset.type).map(u => u.id);
       else ids = Object.keys(units.units);
-      // 'units' overview layout needs proxies; expanding-all drops back to system
-      if (state === 'detail' && seg.dataset.all && $('layoutMode').value === 'units')
-        $('layoutMode').value = 'system';
-      applyDetail(ids, state);
+      applyDetail(ids, state); // applyLayout drops 'units' overview if anything expands
     });
   }
   for (const caret of root.querySelectorAll('.sysCaret')) {
@@ -682,7 +683,12 @@ function updateLegendForMetric() {
   $('legendTemp').style.display = m === 'temperature' ? 'flex' : 'none';
   $('legendFlow').style.display = m === 'massFlow' ? 'flex' : 'none';
   if (m === 'system') {
-    $('legendSystem').innerHTML = [['air', 'Air'], ['hw', 'HW'], ['chw', 'CHW'], ['cw', 'CW']]
+    const keys = [['air', 'Air'], ['hw', 'HW'], ['chw', 'CHW'], ['cw', 'CW']];
+    // only show "Other" when some loop is actually unclassified (violet)
+    const hasOther = loopFunctionColors &&
+      Object.values(loopFunctionColors).some(c => c === SYSTEM_PALETTE.other);
+    if (hasOther) keys.push(['other', 'Other']);
+    $('legendSystem').innerHTML = keys
       .map(([k, lbl]) => `<span class="sysKey"><i style="background:${SYSTEM_PALETTE[k]}"></i>${lbl}</span>`)
       .join('');
   }
@@ -1552,6 +1558,13 @@ function clearEdgeRouting() {
 
 function applyLayout() {
   if (!cy) return;
+  // the 'units' overview only has proxies for grouped units; if anything
+  // got expanded (via the detail control, double-tap, or context menu)
+  // it has no proxy and would land as a stray column — fall back to system
+  if ($('layoutMode').value === 'units' && units &&
+      Object.values(units.units).some(u => unitDetail(u.id) === 'detail')) {
+    $('layoutMode').value = 'system';
+  }
   const mode = $('layoutMode').value;
   if (mode === 'units') {
     // max-collapsed system diagram: plant → AHU → distribution → zone
@@ -2153,6 +2166,7 @@ for (const btn of document.querySelectorAll('.paneToggle')) {
 }
 
 clearSelection();
+updateLegendForMetric(); // match the default (System) metric before any data loads
 
 /* ── demo datasets & auto-load ───────────────────────────────── */
 // Over http(s) a demo set loads by default (prototyping). Hash params:
