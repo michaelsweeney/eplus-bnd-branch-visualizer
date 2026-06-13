@@ -147,7 +147,7 @@ function buildCyStyle(theme) {
     zoneBg: '#f0cb6e', zoneBorder: '#b08628', zoneLabel: '#7a5d1d',
     groupBorder: '#d3dae3', groupLabel: '#8a97a8',
     edge: '#b6c0cd', air: '#3a9367', water: '#3d72c4', crossover: '#c05050',
-    sel: '#d97c00', linked: '#d97c00',
+    sel: '#d97c00', linked: '#d97c00', preview: '#2f74b5',
     parentBg: '#000000', parentOpacity: 0.03,
     font: 'IBM Plex Mono, monospace', fontSize: 9
   } : {
@@ -155,7 +155,7 @@ function buildCyStyle(theme) {
     zoneBg: '#5a4a2e', zoneBorder: '#8a6a35', zoneLabel: '#a99263',
     groupBorder: '#2b3546', groupLabel: '#56647c',
     edge: '#39455a', air: '#3a7a5c', water: '#3d6390', crossover: '#7c4a4a',
-    sel: '#ffc66b', linked: '#ffc66b',
+    sel: '#ffc66b', linked: '#ffc66b', preview: '#9ad0ff',
     parentBg: '#ffffff', parentOpacity: 0.02,
     font: 'IBM Plex Mono, monospace', fontSize: 9
   };
@@ -216,6 +216,10 @@ function buildCyStyle(theme) {
         color: c.sel, 'font-weight': 'bold', 'text-background-opacity': 0.96, 'z-index': 20
     }},
     { selector: '.faded', style: { opacity: 0.08, 'text-opacity': 0.08 } },
+    { selector: '.preview', style: {
+        'underlay-color': c.preview, 'underlay-opacity': 0.20, 'underlay-padding': 4, 'z-index': 7
+    }},
+    { selector: 'node.preview', style: { 'border-color': c.preview } },
     { selector: '.linked', style: {
         'underlay-color': c.linked, 'underlay-opacity': 0.18, 'underlay-padding': 5, 'z-index': 8
     }},
@@ -419,6 +423,11 @@ function renderSystemsTree() {
   }
   for (const label of root.querySelectorAll('.sysLabel')) {
     label.addEventListener('click', () => selectUnit(label.dataset.unit, { jump: true }));
+  }
+  // hover a row → preview its elements in the graph
+  for (const rowEl of root.querySelectorAll('.sysRow')) {
+    rowEl.addEventListener('mouseenter', () => previewEles(unitEles(rowEl.dataset.unit)));
+    rowEl.addEventListener('mouseleave', clearPreview);
   }
   const selectedRow = root.querySelector('.sysRow.selected');
   if (selectedRow) selectedRow.scrollIntoView({ block: 'nearest' });
@@ -689,7 +698,7 @@ function updateLegendForMetric() {
       Object.values(loopFunctionColors).some(c => c === SYSTEM_PALETTE.other);
     if (hasOther) keys.push(['other', 'Other']);
     $('legendSystem').innerHTML = keys
-      .map(([k, lbl]) => `<span class="sysKey"><i style="background:${SYSTEM_PALETTE[k]}"></i>${lbl}</span>`)
+      .map(([k, lbl]) => `<span class="sysKey" data-family="${k}" title="${lbl} — click to select"><i style="background:${SYSTEM_PALETTE[k]}"></i>${lbl}</span>`)
       .join('');
   }
 }
@@ -845,7 +854,8 @@ function applyPlaybackToGraph() {
 // an empty label so the graph stays clean.
 function setEdgeStateLabel(edge, temp, flow) {
   let next = '';
-  if (selection && (edge.hasClass('sel') || edge.hasClass('linked'))) {
+  // skip for whole-family selections — labeling every edge would swamp the graph
+  if (selection && selection.kind !== 'loopFamily' && (edge.hasClass('sel') || edge.hasClass('linked'))) {
     const useFlow = currentMetric === 'massFlow';
     const val = useFlow ? flow : temp;
     if (Number.isFinite(val)) {
@@ -882,7 +892,7 @@ function stopDashes() {
 
 function clearSelection() {
   selection = null;
-  if (cy) cy.elements().removeClass('sel linked');
+  if (cy) cy.elements().removeClass('sel linked preview');
   updateZoneHighlights();
   $('inspectorBody').innerHTML =
     '<span class="empty">Nothing selected.</span>' +
@@ -978,6 +988,90 @@ function selectEdge(edge) {
   if (playback) updateTime();
 }
 
+/* ── loop-family selection (from the System legend swatches) ──── */
+const FAMILY_LABEL = { air: 'Air loops', hw: 'Hot water', chw: 'Chilled water', cw: 'Condenser water', other: 'Other loops' };
+function loopFamilyEdges(familyKey) {
+  if (!cy) return null;
+  const color = SYSTEM_PALETTE[familyKey];
+  return cy.edges().filter(e => systemColorForEdge(e) === color);
+}
+function selectLoopFamily(key) {
+  if (!cy) return;
+  const edges = loopFamilyEdges(key);
+  if (!edges || !edges.nonempty()) return;
+  selection = { kind: 'loopFamily', familyKey: key, title: FAMILY_LABEL[key] || key, zoneName: null };
+  cy.elements().removeClass('sel linked preview');
+  edges.addClass('sel');
+  edges.connectedNodes().addClass('linked');
+  updateZoneHighlights();
+  renderFamilyInspector(key, edges);
+  renderSystemsTree();
+  updateMiniChart();
+  if (playback) updateTime();
+}
+function renderFamilyInspector(key, edges) {
+  const loops = new Set();
+  edges.forEach(e => {
+    const l = loopNameForGraphId(e.data('source')) || loopNameForGraphId(e.data('target'));
+    if (l) loops.add(l);
+  });
+  const col = SYSTEM_PALETTE[key];
+  let html = `<h2>${esc(FAMILY_LABEL[key] || key)}</h2>` +
+    `<span class="kindChip" style="color:${col};border-color:${col}">SYSTEM FAMILY</span>`;
+  html += kv([['fluid nodes', edges.length], ['loops', loops.size]]);
+  if (loops.size) {
+    html += '<h3>loops</h3>' + [...loops].sort()
+      .map(l => `<div class="conn"><span class="obj">${esc(l)}</span></div>`).join('');
+  }
+  $('inspectorBody').innerHTML = html;
+}
+
+/* ── preview highlight (transient, hover-driven) ─────────────── */
+// A soft blue glow shown while hovering a tree row / inspector ref /
+// legend swatch — previews what a click would select, without touching
+// the actual selection. Pure feedback, so no new controls to learn.
+function previewEles(eles) {
+  if (!cy) return;
+  cy.elements().removeClass('preview');
+  if (eles && eles.nonempty && eles.nonempty()) eles.addClass('preview');
+}
+function clearPreview() { if (cy) cy.elements().removeClass('preview'); }
+
+// the cy elements a unit occupies: its proxy when grouped, else its
+// member nodes — plus their edges
+function unitEles(unitId) {
+  if (!cy) return null;
+  const u = units && units.units[unitId];
+  if (!u) return cy.collection();
+  const proxy = cy.getElementById(unitId);
+  if (proxy.nonempty()) return proxy.union(proxy.connectedEdges());
+  let col = cy.collection();
+  for (const id of u.members) col = col.union(cy.getElementById(id));
+  return col.union(col.connectedEdges());
+}
+
+// the cy elements an inspector ref points at (mirrors the click handler)
+function refEles(kind, val) {
+  if (!cy) return null;
+  if (kind === 'vertex') {
+    const n = cy.getElementById(val);
+    if (n.nonempty()) return n.union(n.connectedEdges());
+    const uid = units && units.unitOf[val];
+    return uid ? unitEles(uid) : cy.collection();
+  }
+  if (kind === 'unit') return unitEles(val);
+  if (kind === 'zone') {
+    const zv = graphZoneVertexByName(val);
+    if (!zv) return cy.collection();
+    const box = cy.getElementById(zv.id);
+    return box.union(box.connectedEdges());
+  }
+  if (kind === 'node') {
+    return cy.edges().filter(e => String(e.data('label') || '').split(' ⇒ ')[0] === val);
+  }
+  return cy.collection();
+}
+
 // Select a fluid node by name (from an inspector ref). Prefer its visible
 // edge; if the node is hidden inside a collapsed unit, fall back to the
 // component that owns it so the click still lands somewhere coherent.
@@ -1042,24 +1136,30 @@ function computeMiniSeries() {
       if (p.inlet) addNode(p.inlet);
       if (p.outlet) addNode(p.outlet);
     }
-  } else if (selection.kind === 'unit') {
-    const u = units && units.units[selection.unitId];
-    if (u) {
-      const names = new Set();
-      for (const id of u.members) {
+  } else if (selection.kind === 'unit' || selection.kind === 'loopFamily') {
+    const names = new Set();
+    if (selection.kind === 'unit') {
+      const u = units && units.units[selection.unitId];
+      for (const id of (u ? u.members : [])) {
         const v = graph.vertices[id];
         for (const p of (v ? v.pairs : [])) {
           if (p.inlet) names.add(p.inlet);
           if (p.outlet) names.add(p.outlet);
         }
       }
-      // heaviest-flow nodes are the unit's main supply/return runs
-      const peaks = (playbackStats && playbackStats.nodePeaks) || new Map();
-      const ranked = [...names]
-        .filter(n => playback.nodes && playback.nodes[n])
-        .sort((a, b) => (peaks.get(b) || 0) - (peaks.get(a) || 0));
-      for (const n of ranked.slice(0, 4)) addNode(n);
+    } else {
+      const edges = loopFamilyEdges(selection.familyKey);
+      if (edges) edges.forEach(e => {
+        const n = String(e.data('label') || '').split(' ⇒ ')[0];
+        if (n) names.add(n);
+      });
     }
+    // heaviest-flow nodes are the main supply/return runs
+    const peaks = (playbackStats && playbackStats.nodePeaks) || new Map();
+    const ranked = [...names]
+      .filter(n => playback.nodes && playback.nodes[n])
+      .sort((a, b) => (peaks.get(b) || 0) - (peaks.get(a) || 0));
+    for (const n of ranked.slice(0, 4)) addNode(n);
   }
   return out.slice(0, 4);
 }
@@ -1957,6 +2057,14 @@ $('inspectorBody').addEventListener('click', e => {
     selectUnit(val, { jump: true });
   }
 });
+// hover an inspector ref → preview its target in the graph
+$('inspectorBody').addEventListener('mouseover', e => {
+  const el = e.target.closest('.ref');
+  if (el) previewEles(refEles(el.dataset.rk, el.dataset.rv));
+});
+$('inspectorBody').addEventListener('mouseout', e => {
+  if (e.target.closest('.ref')) clearPreview();
+});
 
 /* ── graph context menu ──────────────────────────────────────── */
 // Right-click actions: per-object collapse/expand/hide moved here from
@@ -2092,6 +2200,19 @@ for (const btn of document.querySelectorAll('#metric button')) {
     if (playback) updateTime();
   });
 }
+
+// System legend swatches: hover previews the loop family, click selects it
+$('legendSystem').addEventListener('mouseover', e => {
+  const k = e.target.closest('.sysKey');
+  if (k && k.dataset.family) previewEles(loopFamilyEdges(k.dataset.family));
+});
+$('legendSystem').addEventListener('mouseout', e => {
+  if (e.target.closest('.sysKey')) clearPreview();
+});
+$('legendSystem').addEventListener('click', e => {
+  const k = e.target.closest('.sysKey');
+  if (k && k.dataset.family) selectLoopFamily(k.dataset.family);
+});
 
 window.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;

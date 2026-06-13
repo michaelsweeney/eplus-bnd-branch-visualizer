@@ -62,7 +62,8 @@
   #legend { display: flex; gap: 14px; align-items: center; }
   .legendItem { display: flex; align-items: center; gap: 6px; font: 400 10px/1 var(--mono); color: var(--ink-dim); }
   #legendSystem { gap: 11px; }
-  .sysKey { display: inline-flex; align-items: center; gap: 4px; }
+  .sysKey { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; opacity: 0.85; transition: opacity 0.12s; }
+  .sysKey:hover { opacity: 1; }
   .sysKey i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
   .legendBar { width: 84px; height: 6px; border-radius: 2px; }
   #legendTempBar { background: linear-gradient(to right, #2747c9, #2fa3c9, #3fae62, #c9b53a, #e0492f); }
