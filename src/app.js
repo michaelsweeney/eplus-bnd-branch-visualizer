@@ -49,6 +49,7 @@ function maybeApplyHashSelection() {
 }
 
 function loadText(name, text) {
+  clearSelection(); // drop any prior dataset's selection + stale inspector
   model = parseBnd(text);
   graph = buildGraph(model);
   units = assignUnits(model, graph);
@@ -657,7 +658,9 @@ function colorForTemperature(value, min, max) {
 
 function colorForFlow(value, max) {
   if (!Number.isFinite(value) || !max) return '#39455a';
-  const t = Math.max(0, Math.min(1, Math.sqrt(value / max)));
+  // clamp inside the sqrt: reverse-flow nodes report negative mass flow,
+  // and sqrt(negative) = NaN would poison the color string
+  const t = Math.min(1, Math.sqrt(Math.max(0, value) / max));
   return hslToHex(0.52, 0.8, 0.16 + t * 0.42);
 }
 
@@ -737,8 +740,8 @@ function updateTime() {
   $('timeSlider').style.setProperty('--progress', `${(selectedTimeIndex / max) * 100}%`);
   const time = playback.times && playback.times[selectedTimeIndex];
   if (time) {
-    const [d, hm] = time.label.split(' ');
-    $('readoutDate').textContent = `${d} · ${hm}`;
+    const [d, hm] = String(time.label || '').split(' ');
+    $('readoutDate').textContent = hm ? `${d} · ${hm}` : (d || '—');
     $('readoutValue').textContent = readoutValueText();
   }
   applyPlaybackToGraph();
@@ -1400,7 +1403,7 @@ function onGraphNodeTap(n) {
 
 function selectUnit(unitId, opts = {}) {
   const u = units && units.units[unitId];
-  if (!u) return clearSelection();
+  if (!u || !cy) return clearSelection();
   selection = { kind: 'unit', unitId, title: u.label, zoneName: u.type === 'zoneeq' ? u.label.split(' · ')[0] : null };
   cy.elements().removeClass('sel linked preview');
   const node = cy.getElementById(unitId);
@@ -1758,7 +1761,6 @@ function applyLayout() {
 function applyFilter() {
   if (!cy) return;
   const loop = $('loopFilter').value;
-  const zones = true;
   cy.elements().removeClass('faded');
   let visible = cy.elements();
   if (loop) {
@@ -1794,6 +1796,12 @@ function renderZones3d() {
       $('zone3dEmpty').textContent = `3D view unavailable — WebGL context failed (${error.message}).`;
       return;
     }
+  }
+  // dispose old GPU resources before dropping the meshes, or repeated
+  // dataset switches leak geometries/materials on the GPU
+  for (const child of threeView.zoneGroup.children) {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) child.material.dispose();
   }
   threeView.zoneGroup.clear();
 
@@ -1837,7 +1845,8 @@ function initThree() {
   root.addEventListener('pointerup', onThreePointerUp);
   root.addEventListener('pointerleave', onThreePointerUp);
   root.addEventListener('wheel', onThreeWheel, { passive: false });
-  window.addEventListener('resize', resizeThree);
+  // window resize is handled by the single combined listener (resizeThree
+  // + alignScrubber) at module scope — no separate listener here
   resizeThree();
 }
 

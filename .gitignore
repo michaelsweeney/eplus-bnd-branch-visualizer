@@ -5,3 +5,5 @@ dist/
 coverage/
 test-matrix/
 public/demo-data/
+.claude/
+.remember/
