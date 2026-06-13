@@ -41,6 +41,19 @@ Feature queue for the prototype, roughly ordered. Items marked (Mike,
   expand/group column), with tri-state section toggles.
 - Loop boundary rectangles in the system-flow layout (one labeled box
   per loop, supply+demand sides together, membership by layout band).
+- Single 3-state detail control per tree row (● detail / ◐ grouped /
+  ○ hidden) replacing the group toggle + show/hide checkbox; metric-aware
+  legend (System palette key / temp ramp / flow bar by active metric).
+- Interactivity: hover-preview glow (tree rows + inspector refs) and
+  clickable System-legend swatches that select a whole loop family.
+- Module split (partial): 3D zone view → src/zones3d.js, selection chart
+  → src/chart.js, via live ES-module bindings (app.js stays state owner).
+  app.js 2366 → 1857 lines. The remaining core (graph build/layout,
+  selection, tree, inspector, playback) is intentionally left as the
+  orchestrator — it's tightly coupled (selection drives all five views),
+  so further splitting would create cyclic modules, not cleaner ones. A
+  leaf palette/format util module is the one clean extraction left if an
+  even leaner app.js is wanted later.
 
 - Unit collapse/expand (AHU / plant side / distribution / zone equip)
   with double-click + ⊟/⊞ all; stateless display rebuild.
