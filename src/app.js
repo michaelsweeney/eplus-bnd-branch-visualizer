@@ -486,6 +486,13 @@ function loadPlayback(name, text) {
   updateDatasetChip();
   updateMiniChart();
   updateTime();
+  // loop classification just changed; refresh a stale loop-family selection
+  // (e.g. an 'Other' family picked before playback that now classifies)
+  if (selection && selection.kind === 'loopFamily') {
+    const fe = loopFamilyEdges(selection.familyKey);
+    if (fe && fe.nonempty()) selectLoopFamily(selection.familyKey);
+    else clearSelection();
+  }
 }
 
 function updateDatasetChip(bndName) {
@@ -930,7 +937,7 @@ function selectZone(zoneName) {
   const zv = graphZoneVertexByName(zoneName);
   selection = { kind: 'zone', zoneName: zv ? zv.v.name : zoneName };
   if (cy) {
-    cy.elements().removeClass('sel linked');
+    cy.elements().removeClass('sel linked preview');
     if (zv) {
       const box = cy.getElementById(zv.id);
       if (box.nonempty()) {
@@ -954,7 +961,7 @@ function selectVertex(vertexId) {
   if (v.type === 'ZONE') return selectZone(v.name);
   selection = { kind: 'vertex', vertexId, title: v.name, zoneName: v.zone || null };
   if (cy) {
-    cy.elements().removeClass('sel linked');
+    cy.elements().removeClass('sel linked preview');
     const node = cy.getElementById(vertexId);
     if (node.nonempty()) {
       node.addClass('sel');
@@ -978,7 +985,7 @@ function selectEdge(edge) {
   const d = edge.data();
   const names = String(d.label || '').split(' ⇒ ');
   selection = { kind: 'edge', nodeName: names[0], title: names.join(' ⇒ '), zoneName: null };
-  cy.elements().removeClass('sel linked');
+  cy.elements().removeClass('sel linked preview');
   edge.addClass('sel');
   edge.connectedNodes().addClass('linked');
   updateZoneHighlights();
@@ -1086,7 +1093,7 @@ function selectEdgeByNode(nodeName) {
   if (owner) { selectVertex(owner.id); return; }
   // last resort: node-only selection so the chart still tracks it
   selection = { kind: 'edge', nodeName, title: nodeName, zoneName: null };
-  if (cy) cy.elements().removeClass('sel linked');
+  if (cy) cy.elements().removeClass('sel linked preview');
   updateZoneHighlights();
   renderSystemsTree();
   updateMiniChart();
@@ -1395,7 +1402,7 @@ function selectUnit(unitId, opts = {}) {
   const u = units && units.units[unitId];
   if (!u) return clearSelection();
   selection = { kind: 'unit', unitId, title: u.label, zoneName: u.type === 'zoneeq' ? u.label.split(' · ')[0] : null };
-  cy.elements().removeClass('sel linked');
+  cy.elements().removeClass('sel linked preview');
   const node = cy.getElementById(unitId);
   let focus;
   if (node.nonempty()) {
