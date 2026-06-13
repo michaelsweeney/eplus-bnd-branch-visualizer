@@ -176,6 +176,14 @@
   }
   .sysLabel:hover { color: var(--accent); }
   #systems input[type="checkbox"] { accent-color: var(--accent); margin: 0; cursor: pointer; }
+  /* grouping toggle: [−] expanded / [+] grouped / [±] mixed — a tree
+     affordance, deliberately not a checkbox so it reads apart from show/hide */
+  .sysGroup, .sysGroupSec, .sysGroupAll {
+    appearance: none; background: none; border: 0; padding: 0; flex: none;
+    width: 24px; text-align: center; cursor: pointer;
+    font: 600 11px/1 var(--mono); letter-spacing: -1px; color: var(--ink-dim);
+  }
+  .sysGroup:hover, .sysGroupSec:hover, .sysGroupAll:hover { color: var(--accent); }
 
   /* ── inspector sidebar ───────────────────────────────────── */
   #inspector {

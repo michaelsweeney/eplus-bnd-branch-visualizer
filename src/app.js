@@ -318,6 +318,11 @@ function defaultCollapsedSet() {
 const SYS_SECTIONS = [['ahu', 'AIR LOOPS'], ['plant', 'PLANT'], ['dist', 'DISTRIBUTION'], ['zoneeq', 'ZONE EQUIPMENT']];
 const sysSectionOpen = { ahu: true, plant: true, dist: true, zoneeq: false };
 
+// grouping toggle glyph: [−] expanded (members drawn individually),
+// [+] grouped (collapsed to one unit box), [±] mixed (section/all only).
+// Distinct from the show/hide checkbox so the two columns don't read alike.
+const groupGlyph = state => state === 'grouped' ? '[+]' : state === 'mixed' ? '[±]' : '[−]';
+
 function renderSystemsTree() {
   const root = $('systemsTree');
   if (!units || !Object.keys(units.units).length) {
@@ -327,7 +332,7 @@ function renderSystemsTree() {
   const allIds = Object.keys(units.units);
   let html = `<div class="sysHead sysMaster">
     <span class="sysCaretPad"></span>
-    <input type="checkbox" class="sysAllG" title="expand / group everything">
+    <button class="sysGroupAll" title="expand / group everything"></button>
     <input type="checkbox" class="sysAllVisG" title="show / hide everything">
     <span class="sysTitle">ALL SYSTEMS</span>
     <span class="sysCount">${allIds.length}</span>
@@ -341,7 +346,7 @@ function renderSystemsTree() {
     html += `<div class="sysSection">
       <div class="sysHead">
         <button class="sysCaret" data-type="${type}">${open ? '▾' : '▸'}</button>
-        <input type="checkbox" class="sysAll" data-type="${type}" title="expand / group all">
+        <button class="sysGroupSec" data-type="${type}" title="expand / group all"></button>
         <input type="checkbox" class="sysAllVis" data-type="${type}" title="show / hide all">
         <span class="sysTitle">${title}</span>
         <span class="sysCount">${list.length}</span>
@@ -349,7 +354,7 @@ function renderSystemsTree() {
       <div class="sysList" data-type="${type}" style="display:${open ? 'block' : 'none'}">` +
       list.map(u => `
         <div class="sysRow${selectedUnitIdForTree() === u.id ? ' selected' : ''}${hiddenSet.has(u.id) ? ' off' : ''}" data-unit="${esc(u.id)}">
-          <input type="checkbox" class="sysBox" data-unit="${esc(u.id)}" title="expanded / grouped" ${collapsedSet.has(u.id) ? '' : 'checked'}>
+          <button class="sysGroup" data-unit="${esc(u.id)}" title="${collapsedSet.has(u.id) ? 'grouped — click to expand' : 'expanded — click to group'}">${groupGlyph(collapsedSet.has(u.id) ? 'grouped' : 'expanded')}</button>
           <input type="checkbox" class="sysVis" data-unit="${esc(u.id)}" title="shown / hidden" ${hiddenSet.has(u.id) ? '' : 'checked'}>
           <span class="sysLabel" data-unit="${esc(u.id)}" title="${esc(u.label)} — click to select">${esc(u.label)}</span>
           <span class="sysCount">${u.members.length}</span>
@@ -358,11 +363,12 @@ function renderSystemsTree() {
   }
   root.innerHTML = html;
 
-  for (const box of root.querySelectorAll('.sysBox')) {
-    box.addEventListener('change', () => {
+  // grouping toggles ([−]/[+]/[±]) — per unit, per section, and master
+  for (const btn of root.querySelectorAll('.sysGroup')) {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.unit;
       const next = new Set(collapsedSet);
-      if (box.checked) next.delete(box.dataset.unit);
-      else next.add(box.dataset.unit);
+      if (next.has(id)) next.delete(id); else next.add(id);
       setCollapsed(next);
     });
   }
@@ -374,29 +380,30 @@ function renderSystemsTree() {
       setHidden(next);
     });
   }
-  for (const all of root.querySelectorAll('.sysAll')) {
-    const type = all.dataset.type;
+  for (const btn of root.querySelectorAll('.sysGroupSec')) {
+    const type = btn.dataset.type;
     const ids = Object.values(units.units).filter(u => u.type === type).map(u => u.id);
     const expanded = ids.filter(id => !collapsedSet.has(id)).length;
-    all.checked = expanded === ids.length;
-    all.indeterminate = expanded > 0 && expanded < ids.length;
-    all.addEventListener('change', () => {
+    btn.textContent = groupGlyph(expanded === ids.length ? 'expanded' : expanded === 0 ? 'grouped' : 'mixed');
+    btn.addEventListener('click', () => {
+      const allExpanded = ids.every(id => !collapsedSet.has(id));
       const next = new Set(collapsedSet);
-      for (const id of ids) {
-        if (all.checked) next.delete(id);
-        else next.add(id);
-      }
+      for (const id of ids) { if (allExpanded) next.add(id); else next.delete(id); }
       setCollapsed(next);
     });
   }
-  const masterG = root.querySelector('.sysAllG');
+  const masterG = root.querySelector('.sysGroupAll');
   const masterV = root.querySelector('.sysAllVisG');
   const expandedAll = allIds.filter(id => !collapsedSet.has(id)).length;
-  masterG.checked = expandedAll === allIds.length;
-  masterG.indeterminate = expandedAll > 0 && expandedAll < allIds.length;
-  masterG.addEventListener('change', () => {
-    if (masterG.checked && $('layoutMode').value === 'units') $('layoutMode').value = 'system';
-    setCollapsed(masterG.checked ? new Set() : new Set(allIds));
+  masterG.textContent = groupGlyph(expandedAll === allIds.length ? 'expanded' : expandedAll === 0 ? 'grouped' : 'mixed');
+  masterG.addEventListener('click', () => {
+    const allExpanded = allIds.every(id => !collapsedSet.has(id));
+    if (allExpanded) {
+      setCollapsed(new Set(allIds));
+    } else {
+      if ($('layoutMode').value === 'units') $('layoutMode').value = 'system';
+      setCollapsed(new Set());
+    }
   });
   const shownAll = allIds.filter(id => !hiddenSet.has(id)).length;
   masterV.checked = shownAll === allIds.length;
