@@ -320,8 +320,15 @@ const sysSectionOpen = { ahu: true, plant: true, dist: true, zoneeq: false };
 
 // grouping toggle glyph: [−] expanded (members drawn individually),
 // [+] grouped (collapsed to one unit box), [±] mixed (section/all only).
-// Distinct from the show/hide checkbox so the two columns don't read alike.
+// Distinct from the show/hide checkbox so the two columns don't read alike;
+// colored by state (expanded green) so the state pops at a glance.
 const groupGlyph = state => state === 'grouped' ? '[+]' : state === 'mixed' ? '[±]' : '[−]';
+const groupState = (expanded, total) => expanded === total ? 'expanded' : expanded === 0 ? 'grouped' : 'mixed';
+function setGroupBtn(btn, state) {
+  btn.textContent = groupGlyph(state);
+  btn.classList.remove('g-expanded', 'g-grouped', 'g-mixed');
+  btn.classList.add('g-' + state);
+}
 
 function renderSystemsTree() {
   const root = $('systemsTree');
@@ -354,7 +361,7 @@ function renderSystemsTree() {
       <div class="sysList" data-type="${type}" style="display:${open ? 'block' : 'none'}">` +
       list.map(u => `
         <div class="sysRow${selectedUnitIdForTree() === u.id ? ' selected' : ''}${hiddenSet.has(u.id) ? ' off' : ''}" data-unit="${esc(u.id)}">
-          <button class="sysGroup" data-unit="${esc(u.id)}" title="${collapsedSet.has(u.id) ? 'grouped — click to expand' : 'expanded — click to group'}">${groupGlyph(collapsedSet.has(u.id) ? 'grouped' : 'expanded')}</button>
+          <button class="sysGroup g-${collapsedSet.has(u.id) ? 'grouped' : 'expanded'}" data-unit="${esc(u.id)}" title="${collapsedSet.has(u.id) ? 'grouped — click to expand' : 'expanded — click to group'}">${groupGlyph(collapsedSet.has(u.id) ? 'grouped' : 'expanded')}</button>
           <input type="checkbox" class="sysVis" data-unit="${esc(u.id)}" title="shown / hidden" ${hiddenSet.has(u.id) ? '' : 'checked'}>
           <span class="sysLabel" data-unit="${esc(u.id)}" title="${esc(u.label)} — click to select">${esc(u.label)}</span>
           <span class="sysCount">${u.members.length}</span>
@@ -384,7 +391,7 @@ function renderSystemsTree() {
     const type = btn.dataset.type;
     const ids = Object.values(units.units).filter(u => u.type === type).map(u => u.id);
     const expanded = ids.filter(id => !collapsedSet.has(id)).length;
-    btn.textContent = groupGlyph(expanded === ids.length ? 'expanded' : expanded === 0 ? 'grouped' : 'mixed');
+    setGroupBtn(btn, groupState(expanded, ids.length));
     btn.addEventListener('click', () => {
       const allExpanded = ids.every(id => !collapsedSet.has(id));
       const next = new Set(collapsedSet);
@@ -395,7 +402,7 @@ function renderSystemsTree() {
   const masterG = root.querySelector('.sysGroupAll');
   const masterV = root.querySelector('.sysAllVisG');
   const expandedAll = allIds.filter(id => !collapsedSet.has(id)).length;
-  masterG.textContent = groupGlyph(expandedAll === allIds.length ? 'expanded' : expandedAll === 0 ? 'grouped' : 'mixed');
+  setGroupBtn(masterG, groupState(expandedAll, allIds.length));
   masterG.addEventListener('click', () => {
     const allExpanded = allIds.every(id => !collapsedSet.has(id));
     if (allExpanded) {

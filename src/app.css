@@ -183,7 +183,10 @@
     width: 24px; text-align: center; cursor: pointer;
     font: 600 11px/1 var(--mono); letter-spacing: -1px; color: var(--ink-dim);
   }
-  .sysGroup:hover, .sysGroupSec:hover, .sysGroupAll:hover { color: var(--accent); }
+  .sysGroup.g-expanded, .sysGroupSec.g-expanded, .sysGroupAll.g-expanded { color: var(--air); }
+  .sysGroup.g-grouped, .sysGroupSec.g-grouped, .sysGroupAll.g-grouped { color: var(--ink-faint); }
+  .sysGroup.g-mixed, .sysGroupSec.g-mixed, .sysGroupAll.g-mixed { color: var(--accent); }
+  .sysGroup:hover, .sysGroupSec:hover, .sysGroupAll:hover { filter: brightness(1.4); }
 
   /* ── inspector sidebar ───────────────────────────────────── */
   #inspector {
