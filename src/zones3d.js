@@ -81,7 +81,9 @@ function initThree() {
   root.addEventListener('pointerdown', onThreePointerDown);
   root.addEventListener('pointermove', onThreePointerMove);
   root.addEventListener('pointerup', onThreePointerUp);
-  root.addEventListener('pointerleave', onThreePointerUp);
+  // leaving the area only cancels an in-progress orbit — it must NOT pick
+  // (that cleared the selection whenever the mouse left the 3D pane)
+  root.addEventListener('pointerleave', onThreePointerLeave);
   root.addEventListener('wheel', onThreeWheel, { passive: false });
   // window resize is handled by the single combined listener (resizeThree
   // + alignScrubber) at module scope — no separate listener here
@@ -236,7 +238,12 @@ function onThreePointerUp(event) {
   if (!threeView) return;
   const moved = threeView.moved;
   threeView.dragging = false;
-  if (!moved) pickThreeZone(event);
+  if (!moved) pickThreeZone(event); // a click (no drag) selects/deselects
+}
+
+// mouse left the 3D pane: just end any orbit — never pick/clear
+function onThreePointerLeave() {
+  if (threeView) { threeView.dragging = false; threeView.moved = false; }
 }
 
 function onThreeWheel(event) {
