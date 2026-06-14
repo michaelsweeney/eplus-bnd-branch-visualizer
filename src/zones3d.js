@@ -200,8 +200,10 @@ export function updateZoneHighlights() {
     }
     const isSel = selectedZone && upper(zn) === selectedZone;
     if (isSel) {
+      // the focused zone is always fully opaque; the slider only fades the
+      // surrounding context (or the whole building when nothing is selected)
       child.material.color.set('#ffc66b');
-      child.material.opacity = Math.max(0.85, zoneOpacity);
+      child.material.opacity = 1;
       continue;
     }
     const series = zoneSeriesFor(zn);
