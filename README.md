@@ -7,48 +7,63 @@ goal of an auto-play temporal slider visualizing thermal flow through
 system nodes.
 
 Spun out of [timestep](https://github.com/michaelsweeney/timestep)
-2026-06-11. **Status: local prototype.** The topology prototype has been
-copied here from timestep's `explorations/bnd-viz/` so it can be tested
-locally while the longer-term packaging and `@timestep/core` split are
-worked out. See `PROMPT.md` for the original agent kickoff brief.
+2026-06-11. **Status: working prototype**, with a public hosted demo at
+**https://eplus-bnd-viz.pages.dev** (the GitHub repo is private; the
+Cloudflare Pages site is public independently). Copied here from
+timestep's `explorations/bnd-viz/`; see `PROMPT.md` for the original
+kickoff brief and `BACKLOG.md` for what's queued.
 
 ## Local prototype
 
 A Vite app (`npm run dev`, default http://localhost:5173/) — vanilla ES
 modules, no framework; cytoscape/three come from npm. `index.html` is
-markup only; runtime lives in `src/app.js` + `src/app.css` with the
-parser/graph/layout/units libraries as plain modules shared with the
-node test suite. `npm run build` emits `dist/`. Demo datasets live in
-gitignored `public/demo-data/` and auto-load in dev (dataset selector:
-Large Office VAV / Hospital / Small Office).
+markup only. The runtime is `src/app.js` (loading, graph build/style/
+layout, the selection model, systems tree, inspector, playback) plus
+cohesive view modules it drives via live ES-module bindings —
+`src/zones3d.js` (Three.js 3D zones), `src/chart.js` (selection chart
+pane), `src/palette.js` (value→color ramps + SI/IP display units) — over
+the `parsebnd`/`buildgraph`/`layoutbnd`/`units` libraries shared with the
+node test suite. Styles in `src/app.css`. `npm run build` emits `dist/`.
+Demo datasets live in gitignored `public/demo-data/` and auto-load in
+dev (dataset selector: Large Office VAV / Hospital / Small Office).
 
-- **Panels**: systems tree (collapsible unit hierarchy with two checkbox
-  columns per unit — expand/group and show/hide, with tri-state section
-  toggles; zone equipment + distribution collapse by default), system
-  graph (Cytoscape; system-flow / organic / unit overview layouts, loop
-  filter, double-click collapses/expands units, right-click context menu
-  for group / hide / select-all actions), 3D zones (Three.js), inspector
-  sidebar, and a bottom transport bar (play/pause, speed, annual scrub
-  with month ruler; space / ←→ keyboard control). All panels resize via
-  grabbers and collapse. Set-and-forget controls (theme, SI/IP units,
-  colorscale) live in the topbar ⚙ popover. The system-flow layout draws
-  each loop as a labeled boundary rectangle around its band (supply +
-  demand sides of a plant loop share one box); box membership follows
-  the layout's band assignment, since dual-membership components (an
-  air-loop coil on a CHW demand branch) are drawn in one band only.
+Opens in **Temperature** metric, **IP** units, with a 40–120 °F scale by
+default.
+
+- **Panels**: a systems tree (unit hierarchy in sections; one 3-state
+  **detail control** per row — ● full detail / ◐ grouped to one box / ○
+  hidden — at unit, section, and "all systems" scope; zone equipment +
+  distribution group by default), the system graph (Cytoscape; system-
+  flow / organic / unit-overview layouts, loop filter, right-click
+  context menu for group/hide/select), 3D zones (Three.js, with a
+  non-selected-zone opacity slider), an inspector sidebar with a **zone
+  picker** to jump to any zone, and a collapsible bottom **chart pane**
+  (sparklines of the selection with a hover crosshair + tooltip) above
+  the transport bar (play/pause, speed, annual scrub aligned to the chart
+  x-axis; space / ←→ keyboard control). All panels resize and collapse;
+  theme / SI-IP units / colorscale live in the topbar ⚙ popover. The
+  system-flow layout draws each loop as a labeled boundary rectangle
+  around its band (a plant loop's supply + demand share one box), by
+  layout band so a dual-membership component (an air-loop coil on a CHW
+  demand branch) lands in one box only.
 - **Metric toggle** (System | Temperature | Flow): System colors by loop
   function (air amber, HW red, CHW blue, CW green — plant loops
   classified by operating temps, not names); Temperature/Flow use ramps.
-  Edge width = capacity (node peak flow over the run), opacity = live
-  utilization. Zone boxes and 3D surfaces heatmap by zone mean air
-  temperature. Scale domains and the colorscale are editable in the
-  legend (blank input = auto; node temps percentile-clipped — stagnant
-  coil outlet nodes report physically absurd temperatures at zero flow).
-- **Linked selection**: clicking a zone in either pane selects it in
-  both, highlights its connected HVAC nodes/edges amber, and shows its
-  epJSON object + geometry + node connections in the inspector.
-  Clicking a component highlights its connected objects and its served
-  zone (if any) in both panes; clicking an edge shows the fluid node.
+  The legend shows only the active metric's key (the System palette
+  swatches, or the temp ramp / flow bar with editable domains). Edge
+  width = capacity (node peak flow over the run), opacity = live
+  utilization; with a selection + a time set, each linked edge labels its
+  node with the current value. Zone boxes and 3D surfaces heatmap by zone
+  mean air temperature (node temps percentile-clipped — stagnant coil
+  outlet nodes report physically absurd temperatures at zero flow).
+- **Linked selection** drives every view at once. Click a zone (graph,
+  3D, or the inspector picker) → it highlights in all panes, lights its
+  connected HVAC nodes/edges, and shows its epJSON + geometry + node
+  connections in the inspector. Click a component → its connected objects
+  and served zone light up; click an edge → the fluid node. Inspector
+  references are clickable, and hovering a tree row / inspector reference
+  previews its graph elements. Clicking a System-legend swatch selects a
+  whole loop family (all HW, all CHW, …).
 - **Drag-drop** any `.bnd`, epJSON, or playback JSON to replace the
   loaded set.
 - Run `npm test` for the parser/graph/layout/units/prep/export suites.
@@ -180,9 +195,13 @@ matching node series were found.
   each cell; stacks wrap at 14. Classification prefers branch membership,
   falls back to node fluid type (reheat coils draw airside, air-cooled
   chillers stay waterside). Band inference walks Air edges only.
-- `src/app.js` + `index.html` — the explorer app (see "Local prototype"
-  above); click drill-down reaches every object touching a node
-  (setpoint managers, controllers).
+- `src/app.js` + `index.html` — the explorer app and its core (see
+  "Local prototype" above); click drill-down reaches every object
+  touching a node (setpoint managers, controllers).
+- `src/zones3d.js` / `src/chart.js` / `src/palette.js` — extracted view
+  modules: the Three.js zone view, the selection chart pane, and the
+  color/SI-IP utility layer. They read shared app state through live ES
+  bindings, so app.js stays the single state owner.
 - `src/units.js` — collapsible unit membership (AHU / plant side /
   distribution / zone equipment) from explicit .bnd structure,
   containment-first.
