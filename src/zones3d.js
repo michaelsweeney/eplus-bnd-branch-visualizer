@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import {
   $, upper, geometry, currentTheme, playbackStats, selection, zoneOpacity,
-  selectedTimeIndex, zoneSeriesFor, selectZone, clearSelection
+  hiddenZones, selectedTimeIndex, zoneSeriesFor, selectZone, clearSelection
 } from './app.js';
 import { colorForTemperature } from './palette.js';
 
@@ -48,7 +48,10 @@ export function renderZones3d() {
       mesh.userData.zoneName = zone.name;
       mesh.userData.baseColor = color;
       threeView.zoneGroup.add(mesh);
-      threeView.zoneGroup.add(edgeLinesForSurface(surface, center));
+      const edge = edgeLinesForSurface(surface, center);
+      edge.userData.zoneName = zone.name; // tagged so it hides with its zone
+      edge.userData.isEdge = true;
+      threeView.zoneGroup.add(edge);
     }
   }
   fitThreeCamera();
@@ -119,17 +122,39 @@ function boundsCenter(bounds) {
   };
 }
 
+// bounds of the currently-visible (non-hidden) zones, in model space
+function visibleZoneBounds() {
+  if (!geometry) return null;
+  const b = { min: { x: Infinity, y: Infinity, z: Infinity }, max: { x: -Infinity, y: -Infinity, z: -Infinity } };
+  let any = false;
+  for (const z of geometry.zones) {
+    if (hiddenZones.has(upper(z.name))) continue;
+    for (const surf of z.surfaces) for (const v of surf.vertices) {
+      any = true;
+      b.min.x = Math.min(b.min.x, v.x); b.max.x = Math.max(b.max.x, v.x);
+      b.min.y = Math.min(b.min.y, v.y); b.max.y = Math.max(b.max.y, v.y);
+      b.min.z = Math.min(b.min.z, v.z); b.max.z = Math.max(b.max.z, v.z);
+    }
+  }
+  return any ? b : geometry.bounds;
+}
+
+// frame the visible zones (so hiding some zooms to extents); meshes are
+// positioned relative to the full-building center, so look at the visible
+// centroid in that frame
 export function fitThreeCamera() {
   if (!threeView || !geometry) return;
-  const dx = geometry.bounds.max.x - geometry.bounds.min.x;
-  const dy = geometry.bounds.max.y - geometry.bounds.min.y;
-  const dz = geometry.bounds.max.z - geometry.bounds.min.z;
-  const span = Math.max(dx, dy, dz, 1);
+  const b = visibleZoneBounds();
+  if (!b) return;
+  const span = Math.max(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z, 1);
+  const fc = boundsCenter(geometry.bounds);
+  const vc = { x: (b.min.x + b.max.x) / 2, y: (b.min.y + b.max.y) / 2, z: (b.min.z + b.max.z) / 2 };
+  const t = toThreeVector(vc, fc);
   threeView.zoneGroup.rotation.set(0, 0, 0);
-  threeView.camera.position.set(span * 0.95, span * 0.65, span * 0.95);
+  threeView.camera.position.set(t.x + span * 0.95, t.y + span * 0.65, t.z + span * 0.95);
   threeView.camera.near = Math.max(span / 1000, 0.01);
   threeView.camera.far = span * 10;
-  threeView.camera.lookAt(0, 0, 0);
+  threeView.camera.lookAt(t.x, t.y, t.z);
   threeView.camera.updateProjectionMatrix();
   renderThree();
 }
@@ -156,8 +181,12 @@ export function updateZoneHighlights() {
   const s = playbackStats || {};
   const selectedZone = selection && selection.zoneName ? upper(selection.zoneName) : null;
   for (const child of threeView.zoneGroup.children) {
-    if (!child.material || !child.userData.zoneName) continue;
-    const isSel = selectedZone && upper(child.userData.zoneName) === selectedZone;
+    const zn = child.userData.zoneName;
+    if (!zn) continue;
+    if (hiddenZones.has(upper(zn))) { child.visible = false; continue; }
+    child.visible = true;
+    if (child.userData.isEdge || !child.material) continue; // edges: visibility only
+    const isSel = selectedZone && upper(zn) === selectedZone;
     if (isSel) {
       child.material.color.set('#ffc66b');
       child.material.opacity = Math.max(0.85, zoneOpacity);

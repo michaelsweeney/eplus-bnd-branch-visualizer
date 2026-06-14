@@ -19,7 +19,7 @@ cytoscape.use(cytoscapeFcose);
 // bindings; app.js stays the owner and only it reassigns them
 export {
   $, esc, upper, geometry, graph, units, playback, currentTheme, playbackStats,
-  selection, zoneOpacity, selectedTimeIndex, zoneSeriesFor,
+  selection, zoneOpacity, hiddenZones, selectedTimeIndex, zoneSeriesFor,
   selectZone, clearSelection, graphZoneVertexByName, loopFamilyEdges
 };
 
@@ -38,6 +38,7 @@ let currentMetric = 'temperature';
 let loopFunctionColors = null; // loopName -> hex, from classifyLoops()
 let currentTheme = 'dark';
 let zoneOpacity = 0.18;        // opacity of non-selected 3D zones (slider)
+let hiddenZones = new Set();   // UPPER(zone) names hidden from graph + 3D
 let units = null;             // { units, unitOf } from assignUnits
 let collapsedSet = new Set(); // unit ids currently collapsed
 let hiddenSet = new Set();    // unit ids currently not displayed at all
@@ -70,6 +71,7 @@ function loadText(name, text) {
     ? new Set(Object.keys(units.units))
     : defaultCollapsedSet();
   hiddenSet = new Set();
+  hiddenZones = new Set();
   for (const el of graph.elements)
     if (!el.data.source) el.data.origParent = el.data.parent || null;
   if (graph.elements.length === 0) {
@@ -339,7 +341,43 @@ function defaultCollapsedSet() {
 
 /* ── systems tree panel ──────────────────────────────────────── */
 const SYS_SECTIONS = [['ahu', 'AIR LOOPS'], ['plant', 'PLANT'], ['dist', 'DISTRIBUTION'], ['zoneeq', 'ZONE EQUIPMENT']];
-const sysSectionOpen = { ahu: true, plant: true, dist: true, zoneeq: false };
+const sysSectionOpen = { ahu: true, plant: true, dist: true, zoneeq: false, zones: false };
+
+// zones get a simpler on/off filter (no "grouped" state): ● shown / ○ hidden
+const ZONE_SEG = [['shown', '●'], ['hidden', '○']];
+function zoneSegHtml(active, dataAttr) {
+  return '<span class="detailSeg">' + ZONE_SEG.map(([s, g]) =>
+    `<button class="dseg z-${s}${active === s ? ' on' : ''}" data-zstate="${s}"${dataAttr} ` +
+    `title="${s === 'shown' ? 'show' : 'hide'}">${g}</button>`
+  ).join('') + '</span>';
+}
+function zoneNameOfNode(n) {
+  return String(n.data('id') || '').split('|')[1] || n.data('label');
+}
+// apply hiddenZones to the graph (zone boxes + their edges) and 3D, without
+// a full rebuild so the current selection survives
+function applyZoneVisibility() {
+  if (cy) {
+    const zones = cy.nodes('[?isZone]');
+    cy.batch(() => {
+      zones.forEach(n => n.style('display', hiddenZones.has(upper(zoneNameOfNode(n))) ? 'none' : 'element'));
+      zones.connectedEdges().forEach(e => {
+        const off = e.source().style('display') === 'none' || e.target().style('display') === 'none';
+        e.style('display', off ? 'none' : 'element');
+      });
+    });
+  }
+  updateZoneHighlights();
+}
+function setHiddenZones(next, fit) {
+  hiddenZones = next;
+  applyZoneVisibility();
+  renderSystemsTree();
+  if (fit) { // zoom extents when something was turned off
+    if (cy) cy.fit(cy.elements(':visible'), 30);
+    fitThreeCamera();
+  }
+}
 
 // One per-row "detail level" control instead of two booleans: a unit is
 // shown in full DETAIL (every component), GROUPED (collapsed to one box),
@@ -413,11 +451,35 @@ function renderSystemsTree() {
         </div>`).join('') +
       '</div></div>';
   }
+  // ZONES section: a show/hide filter over every zone (graph box + 3D)
+  const zoneNames = allZoneNames();
+  if (zoneNames.length) {
+    const zOpen = sysSectionOpen.zones;
+    const shownN = zoneNames.filter(z => !hiddenZones.has(upper(z))).length;
+    const aggZ = shownN === zoneNames.length ? 'shown' : shownN === 0 ? 'hidden' : 'mixed';
+    html += `<div class="sysSection">
+      <div class="sysHead">
+        <button class="sysCaret" data-type="zones">${zOpen ? '▾' : '▸'}</button>
+        ${zoneSegHtml(aggZ, ' data-zoneall="1"')}
+        <span class="sysTitle">ZONES</span>
+        <span class="sysCount">${zoneNames.length}</span>
+      </div>
+      <div class="sysList" data-type="zones" style="display:${zOpen ? 'block' : 'none'}">` +
+      zoneNames.map(z => {
+        const off = hiddenZones.has(upper(z));
+        const sel = selection && selection.kind === 'zone' && upper(selection.zoneName) === upper(z);
+        return `<div class="sysRow${sel ? ' selected' : ''}${off ? ' off' : ''}" data-zone="${esc(z)}">
+          ${zoneSegHtml(off ? 'hidden' : 'shown', ` data-zone="${esc(z)}"`)}
+          <span class="zoneLabel" data-zone="${esc(z)}" title="${esc(z)} — click to select">${esc(z)}</span>
+        </div>`;
+      }).join('') +
+      '</div></div>';
+  }
   root.innerHTML = html;
 
   // one detail-level control per row (unit / section / master); a segment
   // click sets every unit in scope to that level
-  for (const seg of root.querySelectorAll('.dseg')) {
+  for (const seg of root.querySelectorAll('.dseg[data-state]')) {
     seg.addEventListener('click', () => {
       const state = seg.dataset.state;
       let ids;
@@ -426,6 +488,23 @@ function renderSystemsTree() {
       else ids = Object.keys(units.units);
       applyDetail(ids, state); // applyLayout drops 'units' overview if anything expands
     });
+  }
+  // zone on/off toggles (per zone, or the section "all")
+  for (const seg of root.querySelectorAll('.dseg[data-zstate]')) {
+    seg.addEventListener('click', () => {
+      const hide = seg.dataset.zstate === 'hidden';
+      const names = seg.dataset.zone ? [seg.dataset.zone] : zoneNames;
+      const next = new Set(hiddenZones);
+      let turnedOff = false;
+      for (const n of names) {
+        if (hide) { if (!next.has(upper(n))) turnedOff = true; next.add(upper(n)); }
+        else next.delete(upper(n));
+      }
+      setHiddenZones(next, turnedOff);
+    });
+  }
+  for (const lbl of root.querySelectorAll('.zoneLabel')) {
+    lbl.addEventListener('click', () => selectZone(lbl.dataset.zone));
   }
   for (const caret of root.querySelectorAll('.sysCaret')) {
     caret.addEventListener('click', () => {
@@ -441,7 +520,8 @@ function renderSystemsTree() {
   }
   // hover a row → preview its elements in the graph
   for (const rowEl of root.querySelectorAll('.sysRow')) {
-    rowEl.addEventListener('mouseenter', () => previewEles(unitEles(rowEl.dataset.unit)));
+    rowEl.addEventListener('mouseenter', () => previewEles(
+      rowEl.dataset.zone ? refEles('zone', rowEl.dataset.zone) : unitEles(rowEl.dataset.unit)));
     rowEl.addEventListener('mouseleave', clearPreview);
   }
   const selectedRow = root.querySelector('.sysRow.selected');
@@ -478,6 +558,7 @@ function loadGeometry(name, text) {
   renderZones3d();
   updateDatasetChip();
   populateZonePicker();
+  if (units) renderSystemsTree(); // refresh the ZONES section with geometry-only zones
   maybeApplyHashSelection();
 }
 
@@ -1450,6 +1531,7 @@ function applyLayout() {
   }
   applyFilter();
   applyPlaybackToGraph();
+  if (hiddenZones.size) applyZoneVisibility(); // reapply after the rebuild
 }
 
 function applyFilter() {
