@@ -18,8 +18,8 @@
   </select>
   <div class="chip" id="datasetChip">no dataset</div>
   <div id="metric">
-    <button data-metric="system" class="on">System</button>
-    <button data-metric="temperature">Temperature</button>
+    <button data-metric="system">System</button>
+    <button data-metric="temperature" class="on">Temperature</button>
     <button data-metric="massFlow">Flow</button>
   </div>
   <div id="spacer"></div>
@@ -42,8 +42,8 @@
       </div>
       <div class="setRow"><label>units</label>
         <div id="unitToggle" class="seg2">
-          <button data-units="si" class="on">SI</button>
-          <button data-units="ip">IP</button>
+          <button data-units="si">SI</button>
+          <button data-units="ip" class="on">IP</button>
         </div>
       </div>
       <div class="setRow"><label>colorscale</label>
@@ -98,7 +98,7 @@
           <span class="paneTitle">ZONES 3D</span>
           <div class="tools">
             <label class="headSlider" title="opacity of non-selected zones">opacity
-              <input type="range" id="zoneOpacity" min="5" max="100" value="50">
+              <input type="range" id="zoneOpacity" min="5" max="100" value="18">
             </label>
             <button class="toolBtn" id="resetCam">reset view</button>
             <button class="toolBtn paneToggle" data-target="zonePane">—</button>
@@ -129,6 +129,7 @@
     <div id="inspectorHead" class="paneHead">
       <span class="paneTitle">INSPECTOR</span>
       <div class="tools">
+        <select id="zonePick" title="jump to a zone"><option value="">zone…</option></select>
         <button class="toolBtn paneToggle" data-target="inspector">—</button>
       </div>
     </div>

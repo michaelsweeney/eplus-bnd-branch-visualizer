@@ -5,8 +5,9 @@
 import * as THREE from 'three';
 import {
   $, upper, geometry, currentTheme, playbackStats, selection, zoneOpacity,
-  selectedTimeIndex, zoneSeriesFor, colorForTemperature, selectZone, clearSelection
+  selectedTimeIndex, zoneSeriesFor, selectZone, clearSelection
 } from './app.js';
+import { colorForTemperature } from './palette.js';
 
 let threeView = null;
 

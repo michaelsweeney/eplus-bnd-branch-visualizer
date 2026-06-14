@@ -7,6 +7,10 @@ import { parseEpjsonGeometry } from './parsegeometry.js';
 import { assignUnits } from './units.js';
 import { renderZones3d, fitThreeCamera, resizeThree, updateZoneHighlights, applyTheme3d } from './zones3d.js';
 import { updateMiniChart, drawMiniChart, alignScrubber, initCharting } from './chart.js';
+import {
+  SYSTEM_PALETTE, RAMPS, scale, colorForTemperature, colorForFlow,
+  tempUnit, flowUnit, dispTemp, siTemp, dispFlow, siFlow, setDisplayUnits
+} from './palette.js';
 import './app.css';
 
 cytoscape.use(cytoscapeFcose);
@@ -15,9 +19,8 @@ cytoscape.use(cytoscapeFcose);
 // bindings; app.js stays the owner and only it reassigns them
 export {
   $, esc, upper, geometry, graph, units, playback, currentTheme, playbackStats,
-  selection, zoneOpacity, selectedTimeIndex, zoneSeriesFor, colorForTemperature,
-  selectZone, clearSelection, graphZoneVertexByName, loopFamilyEdges,
-  flowUnit, tempUnit, dispTemp, dispFlow
+  selection, zoneOpacity, selectedTimeIndex, zoneSeriesFor,
+  selectZone, clearSelection, graphZoneVertexByName, loopFamilyEdges
 };
 
 let cy = null;
@@ -31,10 +34,10 @@ let playbackZonesUpper = null; // UPPER(zone) -> { key, series } (SQL uppercases
 let playTimer = null;
 let dashRaf = null;
 let selectedTimeIndex = 0;
-let currentMetric = 'system';
+let currentMetric = 'temperature';
 let loopFunctionColors = null; // loopName -> hex, from classifyLoops()
 let currentTheme = 'dark';
-let zoneOpacity = 0.5;         // opacity of non-selected 3D zones (slider)
+let zoneOpacity = 0.18;        // opacity of non-selected 3D zones (slider)
 let units = null;             // { units, unitOf } from assignUnits
 let collapsedSet = new Set(); // unit ids currently collapsed
 let hiddenSet = new Set();    // unit ids currently not displayed at all
@@ -89,6 +92,7 @@ function loadText(name, text) {
   updateDatasetChip(name);
   applyPlaybackToGraph();
   renderSystemsTree();
+  populateZonePicker();
   maybeApplyHashSelection();
 }
 
@@ -471,6 +475,7 @@ function loadGeometry(name, text) {
   $('zone3dEmpty').style.display = 'none';
   renderZones3d();
   updateDatasetChip();
+  populateZonePicker();
   maybeApplyHashSelection();
 }
 
@@ -568,9 +573,6 @@ function zoneSeriesFor(zoneName) {
 // vs chilled (blue) by their operating regime in the playback data — the
 // 90th-percentile node temperature on the loop — instead of guessing
 // from loop names. Without playback, plant loops stay violet (unknown).
-const SYSTEM_PALETTE = {
-  air: '#d9a23b', chw: '#5b9bd9', hw: '#d65b4a', cw: '#46b380', other: '#8a7fb8'
-};
 function classifyLoops() {
   loopFunctionColors = {};
   if (!graph) return;
@@ -621,24 +623,6 @@ function systemColorForEdge(edge) {
   return (loopFunctionColors && loopFunctionColors[loop]) || SYSTEM_PALETTE.other;
 }
 
-// display unit system: SI (°C, kg/s) or IP (°F, lb/min) — display-layer
-// only, all internal state stays SI
-let displayUnits = 'si';
-const tempUnit = () => (displayUnits === 'ip' ? '°F' : '°C');
-const flowUnit = () => (displayUnits === 'ip' ? 'lb/min' : 'kg/s');
-const dispTemp = c => (displayUnits === 'ip' ? c * 9 / 5 + 32 : c);
-const siTemp = t => (displayUnits === 'ip' ? (t - 32) * 5 / 9 : t);
-const dispFlow = f => (displayUnits === 'ip' ? f * 132.277 : f);
-const siFlow = f => (displayUnits === 'ip' ? f / 132.277 : f);
-
-// user-adjustable scale domains (null = auto from playback stats) + ramp
-const scale = { tempMin: null, tempMax: null, flowMax: null, ramp: 'thermal' };
-const RAMPS = {
-  thermal: ['#2747c9', '#2fa3c9', '#3fae62', '#c9b53a', '#e0492f'],
-  coolwarm: ['#3b4cc0', '#9abbff', '#f1ede9', '#f4987a', '#b40426'],
-  viridis: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'],
-  inferno: ['#0d0887', '#6a00a8', '#bc3754', '#f98e09', '#fcffa4']
-};
 function effectiveScale() {
   const s = playbackStats || {};
   return {
@@ -647,46 +631,6 @@ function effectiveScale() {
     flowMax: scale.flowMax ?? s.flowMax
   };
 }
-function rampColor(t) {
-  const stops = RAMPS[scale.ramp] || RAMPS.thermal;
-  const x = Math.max(0, Math.min(1, t)) * (stops.length - 1);
-  const i = Math.min(stops.length - 2, Math.floor(x));
-  const f = x - i;
-  const a = stops[i].match(/\w\w/g).map(h => parseInt(h, 16));
-  const b = stops[i + 1].match(/\w\w/g).map(h => parseInt(h, 16));
-  const mix = a.map((v, k) => Math.round(v + (b[k] - v) * f));
-  return `#${mix.map(v => v.toString(16).padStart(2, '0')).join('')}`;
-}
-
-function colorForTemperature(value, min, max) {
-  if (!Number.isFinite(value) || min == null || max == null) return '#56647c';
-  const t = max === min ? 0.5 : (value - min) / (max - min);
-  return rampColor(t);
-}
-
-function colorForFlow(value, max) {
-  if (!Number.isFinite(value) || !max) return '#39455a';
-  // clamp inside the sqrt: reverse-flow nodes report negative mass flow,
-  // and sqrt(negative) = NaN would poison the color string
-  const t = Math.min(1, Math.sqrt(Math.max(0, value) / max));
-  return hslToHex(0.52, 0.8, 0.16 + t * 0.42);
-}
-
-function hslToHex(h, s, l) {
-  const hue2rgb = (p, q, t) => {
-    if (t < 0) t += 1;
-    if (t > 1) t -= 1;
-    if (t < 1 / 6) return p + (q - p) * 6 * t;
-    if (t < 1 / 2) return q;
-    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-    return p;
-  };
-  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-  const p = 2 * l - q;
-  const toHex = x => Math.round(x * 255).toString(16).padStart(2, '0');
-  return `#${toHex(hue2rgb(p, q, h + 1 / 3))}${toHex(hue2rgb(p, q, h))}${toHex(hue2rgb(p, q, h - 1 / 3))}`;
-}
-
 function updateLegend() {
   $('legendTempBar').style.background =
     `linear-gradient(to right, ${(RAMPS[scale.ramp] || RAMPS.thermal).join(',')})`;
@@ -911,6 +855,7 @@ function stopDashes() {
 function clearSelection() {
   selection = null;
   if (cy) cy.elements().removeClass('sel linked preview');
+  syncZonePicker(null);
   updateZoneHighlights();
   $('inspectorBody').innerHTML =
     '<span class="empty">Nothing selected.</span>' +
@@ -944,9 +889,38 @@ function epjsonZoneByName(zoneName) {
   return key ? { key, obj: epjsonRaw.Zone[key] } : null;
 }
 
+// zone picker (inspector head): jump to any zone without hunting for it
+// in the graph or 3D. Sourced from both the .bnd graph zones and the
+// epJSON geometry zones, so it works with either loaded.
+function allZoneNames() {
+  // dedupe case-insensitively (SQL/.bnd uppercase vs epJSON mixed case);
+  // prefer the .bnd graph name so the picker matches the inspector heading
+  const byUpper = new Map();
+  if (geometry) for (const z of geometry.zones) byUpper.set(upper(z.name), z.name);
+  if (graph) for (const k of Object.keys(graph.vertices))
+    if (k.startsWith('ZONE|')) { const n = graph.vertices[k].name; byUpper.set(upper(n), n); }
+  return [...byUpper.values()].sort((a, b) => a.localeCompare(b));
+}
+function populateZonePicker() {
+  const sel = $('zonePick');
+  if (!sel) return;
+  const cur = sel.value;
+  const names = allZoneNames();
+  sel.innerHTML = '<option value="">zone…</option>' +
+    names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if (cur && names.includes(cur)) sel.value = cur;
+}
+function syncZonePicker(zoneName) {
+  const sel = $('zonePick');
+  if (!sel) return;
+  const v = zoneName || '';
+  sel.value = [...sel.options].some(o => o.value === v) ? v : '';
+}
+
 function selectZone(zoneName) {
   const zv = graphZoneVertexByName(zoneName);
   selection = { kind: 'zone', zoneName: zv ? zv.v.name : zoneName };
+  syncZonePicker(selection.zoneName);
   if (cy) {
     cy.elements().removeClass('sel linked preview');
     if (zv) {
@@ -1543,6 +1517,10 @@ $('zoneOpacity').addEventListener('input', () => {
   zoneOpacity = Number($('zoneOpacity').value) / 100;
   updateZoneHighlights();
 });
+$('zonePick').addEventListener('change', () => {
+  const v = $('zonePick').value;
+  if (v) selectZone(v); else clearSelection();
+});
 
 initCharting(); // chart pane hover + resize wiring (owned by chart.js)
 
@@ -1669,7 +1647,7 @@ window.addEventListener('pointerdown', e => {
 
 for (const btn of document.querySelectorAll('#unitToggle button')) {
   btn.addEventListener('click', () => {
-    displayUnits = btn.dataset.units;
+    setDisplayUnits(btn.dataset.units);
     for (const b of document.querySelectorAll('#unitToggle button')) b.classList.toggle('on', b === btn);
     updateLegend();
     updateMiniChart();

@@ -5,9 +5,9 @@
 // live ES module bindings.
 import {
   $, esc, playback, selection, graph, units, playbackStats, currentTheme,
-  selectedTimeIndex, zoneSeriesFor, graphZoneVertexByName, loopFamilyEdges,
-  flowUnit, tempUnit, dispTemp, dispFlow
+  selectedTimeIndex, zoneSeriesFor, graphZoneVertexByName, loopFamilyEdges
 } from './app.js';
+import { flowUnit, tempUnit, dispTemp, dispFlow } from './palette.js';
 
 const MINI_COLORS = ['#e0a33b', '#4f9dd9', '#52b788', '#d96a6a'];
 let miniSeries = [];
