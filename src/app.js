@@ -1063,6 +1063,14 @@ function selectZone(zoneName) {
   const zv = graphZoneVertexByName(zoneName);
   selection = { kind: 'zone', zoneName: zv ? zv.v.name : zoneName };
   syncZonePicker(selection.zoneName);
+  // focusing an inactive zone reactivates it — show it on the graph again so
+  // the focus (and its revealed connections) actually have something to land on
+  if (hiddenZones.has(upper(selection.zoneName))) {
+    const next = new Set(hiddenZones);
+    next.delete(upper(selection.zoneName));
+    hiddenZones = next;
+    applyZoneVisibility();
+  }
   // focus reveals the zone's immediate neighborhood: the edges touching it and
   // the node at each far end, even when that node is grouped or hidden. Rebuild
   // only when the reveal set actually changes what's displayed.
