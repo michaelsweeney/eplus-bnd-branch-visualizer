@@ -1761,6 +1761,10 @@ for (const btn of document.querySelectorAll('.paneToggle')) {
     const closed = pane.classList.toggle('closed');
     btn.textContent = closed ? '⊞' : '—';
     viewsResized();
+    // re-fit the graph so its content fills the resized pane (collapsing
+    // the 3D / a side panel widens the graph; without this the diagram
+    // stays bunched in its old footprint)
+    if (cy) cy.fit(cy.elements(':visible'), 30);
   });
 }
 
