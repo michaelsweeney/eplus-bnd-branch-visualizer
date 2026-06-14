@@ -45,6 +45,7 @@ let hiddenSet = new Set();    // unit ids currently not displayed at all
 let focusReveal = new Set();  // graph vertex ids force-shown for the focused
                               // zone (its immediate neighbors), overriding
                               // grouping/hiding so a zone's connections show
+let graphLocked = true;       // nodes ungrabbable by default → click-drag pans
 // one selection drives every view: {kind:'zone'|'vertex'|'edge', ...}
 let selection = null;
 
@@ -117,6 +118,7 @@ function createCy(elements) {
   // losing a selection to a stray background click is annoying
   cy.on('dbltap', 'node', e => onGraphNodeDblTap(e.target));
   cy.on('cxttap', e => onGraphContextMenu(e));
+  cy.autoungrabify(graphLocked); // locked: drag pans instead of moving nodes
 }
 
 /* ── component icons ─────────────────────────────────────────── */
@@ -1669,6 +1671,16 @@ $('layoutMode').addEventListener('change', () => {
   }
 });
 $('fit').addEventListener('click', () => { if (cy) cy.fit(undefined, 30); });
+$('lockToggle').addEventListener('click', () => {
+  graphLocked = !graphLocked;
+  if (cy) cy.autoungrabify(graphLocked);
+  const btn = $('lockToggle');
+  btn.classList.toggle('on', graphLocked);
+  btn.textContent = graphLocked ? '🔒 locked' : '🔓 unlocked';
+  btn.title = graphLocked
+    ? 'nodes locked — click-drag pans. Unlock to rearrange nodes.'
+    : 'nodes unlocked — drag to rearrange. Lock to pan by dragging.';
+});
 $('resetCam').addEventListener('click', fitThreeCamera);
 $('zoneOpacity').addEventListener('input', () => {
   zoneOpacity = Number($('zoneOpacity').value) / 100;
