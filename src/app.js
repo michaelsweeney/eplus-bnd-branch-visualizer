@@ -343,12 +343,13 @@ function defaultCollapsedSet() {
 const SYS_SECTIONS = [['ahu', 'AIR LOOPS'], ['plant', 'PLANT'], ['dist', 'DISTRIBUTION'], ['zoneeq', 'ZONE EQUIPMENT']];
 const sysSectionOpen = { ahu: true, plant: true, dist: true, zoneeq: false, zones: false };
 
-// zones get a simpler on/off filter (no "grouped" state): ● shown / ○ hidden
+// zones get a simpler active/inactive filter (no "grouped" state). Inactive
+// = hidden from the branch graph, but only faded to translucent in 3D.
 const ZONE_SEG = [['shown', '●'], ['hidden', '○']];
 function zoneSegHtml(active, dataAttr) {
   return '<span class="detailSeg">' + ZONE_SEG.map(([s, g]) =>
     `<button class="dseg z-${s}${active === s ? ' on' : ''}" data-zstate="${s}"${dataAttr} ` +
-    `title="${s === 'shown' ? 'show' : 'hide'}">${g}</button>`
+    `title="${s === 'shown' ? 'active (shown in graph, solid in 3D)' : 'inactive (hidden in graph, translucent in 3D)'}">${g}</button>`
   ).join('') + '</span>';
 }
 function zoneNameOfNode(n) {

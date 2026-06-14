@@ -184,17 +184,27 @@ export function updateZoneHighlights() {
   const selectedZone = selection && selection.zoneName ? upper(selection.zoneName) : null;
   for (const child of threeView.zoneGroup.children) {
     const zn = child.userData.zoneName;
-    if (!zn) continue;
-    if (hiddenZones.has(upper(zn))) { child.visible = false; continue; }
+    if (!zn || !child.material) continue;
     child.visible = true;
-    if (child.userData.isEdge || !child.material) continue; // edges: visibility only
+    const inactive = hiddenZones.has(upper(zn)); // toggled off in the tree
+    if (child.userData.isEdge) {
+      // edges carry no heatmap — just an opacity for active vs inactive
+      child.material.opacity = inactive ? 0.12 : 0.7;
+      continue;
+    }
+    if (inactive) {
+      // off on the branch graph, but kept as faint translucent context in 3D
+      child.material.color.setHex(child.userData.baseColor);
+      child.material.opacity = 0.05;
+      continue;
+    }
     const isSel = selectedZone && upper(zn) === selectedZone;
     if (isSel) {
       child.material.color.set('#ffc66b');
       child.material.opacity = Math.max(0.85, zoneOpacity);
       continue;
     }
-    const series = zoneSeriesFor(child.userData.zoneName);
+    const series = zoneSeriesFor(zn);
     const temp = series && series.temperature && series.temperature.values[selectedTimeIndex];
     if (Number.isFinite(temp)) {
       child.material.color.set(colorForTemperature(temp, s.zoneMin, s.zoneMax));
