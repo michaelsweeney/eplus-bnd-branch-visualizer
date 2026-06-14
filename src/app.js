@@ -107,7 +107,9 @@ function createCy(elements) {
   });
   cy.on('tap', 'node', e => onGraphNodeTap(e.target));
   cy.on('tap', 'edge', e => onGraphEdgeTap(e.target));
-  cy.on('tap', e => { if (e.target === cy) clearSelection(); });
+  // tapping empty graph space leaves the selection alone (deselect by
+  // clicking empty 3D space, the context menu, or the zone picker) —
+  // losing a selection to a stray background click is annoying
   cy.on('dbltap', 'node', e => onGraphNodeDblTap(e.target));
   cy.on('cxttap', e => onGraphContextMenu(e));
 }
