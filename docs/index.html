@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>bnd·viz — EnergyPlus HVAC explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@200;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <meta name="description"
+    content="A browser-based EnergyPlus HVAC explorer: branch/loop graph, 3D zone heatmaps, and annual playback — all client-side." />
+</head>
+
+<body>
+  <div class="logo-title">
+    <span class="title-left">bnd</span><span class="title-right">·viz</span>
+  </div>
+  <div class="tagline">EnergyPlus HVAC topology &amp; timeseries, in the browser.</div>
+
+  <div class="section">
+    <div class="section-header">What it is</div>
+    <p>
+      EnergyPlus tells you everything about how a building's HVAC is wired and
+      how it runs across the year — but that information is scattered across the
+      <code>.bnd</code> branch report, the model geometry, and gigabytes of
+      timeseries output. <strong>bnd·viz</strong> pulls those together into one
+      interactive picture you can open in a browser tab.
+    </p>
+    <p>
+      It parses the EnergyPlus <code>.bnd</code> (Branch Node Details) report
+      into a live loop/branch graph — components are nodes, EnergyPlus nodes are
+      the edges — renders the zone geometry in 3D, and lets you scrub the whole
+      simulation year while temperatures and flows animate across both views.
+      No backend, no install, no license server: it runs entirely client-side.
+    </p>
+    <a class="cta" href="https://eplus-bnd-viz.pages.dev" target="_blank" rel="noopener">▶ Launch the live demo</a>
+    <div class="cta-sub">Loads a sample data-center model. Or drag in your own files — see below.</div>
+  </div>
+  <div class="section-break"></div>
+
+  <div class="section">
+    <div class="section-header">Features</div>
+    <ul>
+      <li><strong>Runs 100% in the browser</strong> — open a link, explore a building. No backend or install.</li>
+      <li><strong>Reads EnergyPlus at the source</strong> — the <code>.bnd</code> branch-node-details report becomes a live loop/branch graph.</li>
+      <li><strong>3D zone geometry from epJSON</strong>, color-mapped to zone air temperature.</li>
+      <li><strong>Scrub the whole simulation year</strong> — play it back and watch zone temps and node flows move.</li>
+      <li><strong>One selection, every view in sync</strong> — click a zone in the graph or in 3D and the diagram, model, time-series chart, and inspector all light up together.</li>
+      <li><strong>Brush the chart to set the time</strong> — the heatmap and per-branch temperature readouts follow your cursor.</li>
+      <li><strong>Whole-plant overview down to a single air loop</strong> — air loops, plant, distribution, and zone equipment are grouped automatically.</li>
+      <li><strong>Loop families auto-classified</strong> (air / hot water / chilled water / condenser) from actual operating temperatures, not loop names.</li>
+      <li><strong>SI / IP units, adjustable temperature ramp, dark / light themes.</strong></li>
+    </ul>
+  </div>
+  <div class="section-break"></div>
+
+  <div class="section">
+    <div class="section-header">Use it with your own models</div>
+    <p>
+      Everything bnd·viz reads is a standard EnergyPlus output — if you can run a
+      simulation, you already have the inputs. Drag these onto the app:
+    </p>
+    <ul>
+      <li><code>eplusout.bnd</code> — the Branch Node Details report, written automatically on every run, for the HVAC topology.</li>
+      <li><strong>epJSON</strong> — your model file (or an IDF converted with EnergyPlus), for the 3D zone geometry.</li>
+      <li><strong>A timeseries JSON</strong> — node/zone temperatures and mass flows pulled from the <code>eplusout.sql</code> SQLite output, for the annual playback.</li>
+    </ul>
+    <p>
+      The <a href="https://github.com/michaelsweeney/eplus-bnd-branch-visualizer" target="_blank" rel="noopener">repo</a>
+      includes the small Node scripts used to extract the timeseries JSON from a
+      simulation, so you can wire it to your own runs.
+    </p>
+  </div>
+  <div class="section-break"></div>
+
+  <div class="section">
+    <div class="section-header">Screenshots</div>
+
+    <div class="image-block">
+      <div class="image-container"><img src="./screenshots/overview.png" alt="Four-panel overview: systems tree, branch graph, 3D zones, inspector and timeline" /></div>
+      <div class="image-subheader">Systems tree · branch graph · 3D zones · inspector + annual timeline</div>
+    </div>
+
+    <div class="image-block">
+      <div class="image-container"><img src="./screenshots/zone-selected.png" alt="A zone selected: highlighted in 3D and the graph, with its time series charted" /></div>
+      <div class="image-subheader">Select a zone anywhere — every view follows, and its series charts below</div>
+    </div>
+
+    <div class="image-block">
+      <div class="image-container"><img src="./screenshots/playback-heatmap.png" alt="Annual playback with the 3D zone temperature heatmap" /></div>
+      <div class="image-subheader">Scrub the year — the 3D zone heatmap and branch readouts update live</div>
+    </div>
+  </div>
+  <div class="section-break"></div>
+
+  <div class="section">
+    <div class="section-header">Built with</div>
+    <div>
+      bnd·viz is open source and compiles to static files you can host anywhere
+      (the live demo is on Cloudflare Pages). The stack:
+      <ul>
+        <li><a href="https://js.cytoscape.org/" target="_blank" rel="noopener">Cytoscape.js</a> — the branch/loop graph</li>
+        <li><a href="https://threejs.org/" target="_blank" rel="noopener">Three.js</a> — the 3D zone view</li>
+        <li><a href="https://vitejs.dev/" target="_blank" rel="noopener">Vite</a> — build &amp; dev server; everything else is vanilla ES modules</li>
+      </ul>
+      Browse the source or build it yourself at the
+      <a href="https://github.com/michaelsweeney/eplus-bnd-branch-visualizer" target="_blank" rel="noopener">GitHub repo</a>.
+    </div>
+  </div>
+</body>
+
+</html>
