@@ -7,11 +7,11 @@ goal of an auto-play temporal slider visualizing thermal flow through
 system nodes.
 
 Spun out of [timestep](https://github.com/michaelsweeney/timestep)
-2026-06-11. **Status: working prototype**, with a public hosted demo at
-**https://eplus-bnd-viz.pages.dev** (the GitHub repo is private; the
-Cloudflare Pages site is public independently). Copied here from
-timestep's `explorations/bnd-viz/`; see `PROMPT.md` for the original
-kickoff brief and `BACKLOG.md` for what's queued.
+2026-06-11. **Status: working prototype.** Live demo:
+**https://eplus-bnd-viz.pages.dev** · landing page:
+**https://michaelsweeney.github.io/eplus-bnd-branch-visualizer/**. Copied
+here from timestep's `explorations/bnd-viz/`; see `PROMPT.md` for the
+original kickoff brief and `BACKLOG.md` for what's queued.
 
 ## Local prototype
 
