@@ -42,6 +42,9 @@ let hiddenZones = new Set();   // UPPER(zone) names hidden from graph + 3D
 let units = null;             // { units, unitOf } from assignUnits
 let collapsedSet = new Set(); // unit ids currently collapsed
 let hiddenSet = new Set();    // unit ids currently not displayed at all
+let focusReveal = new Set();  // graph vertex ids force-shown for the focused
+                              // zone (its immediate neighbors), overriding
+                              // grouping/hiding so a zone's connections show
 // one selection drives every view: {kind:'zone'|'vertex'|'edge', ...}
 let selection = null;
 
@@ -260,8 +263,12 @@ function buildDisplayElements() {
   if (!units || (collapsedSet.size === 0 && hiddenSet.size === 0))
     return structuredClone(graph.elements);
   const unitIdOf = id => units.unitOf[id] || null;
-  const isHidden = id => { const u = unitIdOf(id); return !!(u && hiddenSet.has(u)); };
+  // a focus-revealed node is always shown individually (never hidden, never
+  // collapsed into its unit's proxy) so the focused zone's connection lands
+  // on the real component, not a grouped box
+  const isHidden = id => { const u = unitIdOf(id); return !!(u && hiddenSet.has(u) && !focusReveal.has(id)); };
   const proxyOf = id => {
+    if (focusReveal.has(id)) return null;
     const u = unitIdOf(id);
     return u && !hiddenSet.has(u) && collapsedSet.has(u) ? u : null;
   };
@@ -312,6 +319,7 @@ function buildDisplayElements() {
 
 function rebuildDisplay() {
   if (!cy || !units) return;
+  focusReveal = new Set(); // grouping changed under us; drop any focus reveal
   clearSelection();
   createCy(buildDisplayElements());
   applyLayout();
@@ -470,8 +478,9 @@ function renderSystemsTree() {
         const off = hiddenZones.has(upper(z));
         const sel = selection && selection.kind === 'zone' && upper(selection.zoneName) === upper(z);
         return `<div class="sysRow${sel ? ' selected' : ''}${off ? ' off' : ''}" data-zone="${esc(z)}">
+          <button class="zfocus${sel ? ' on' : ''}" data-zfocus="${esc(z)}" title="${sel ? 'focused — click to clear' : 'focus this zone (reveal its connections)'}">${sel ? '◉' : '◎'}</button>
           ${zoneSegHtml(off ? 'hidden' : 'shown', ` data-zone="${esc(z)}"`)}
-          <span class="zoneLabel" data-zone="${esc(z)}" title="${esc(z)} — click to select">${esc(z)}</span>
+          <span class="zoneLabel" data-zone="${esc(z)}" title="${esc(z)} — click to focus">${esc(z)}</span>
         </div>`;
       }).join('') +
       '</div></div>';
@@ -506,6 +515,15 @@ function renderSystemsTree() {
   }
   for (const lbl of root.querySelectorAll('.zoneLabel')) {
     lbl.addEventListener('click', () => selectZone(lbl.dataset.zone));
+  }
+  // explicit focus toggle: focus the zone, or clear if it's already focused
+  for (const b of root.querySelectorAll('.zfocus')) {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const z = b.dataset.zfocus;
+      const isSel = selection && selection.kind === 'zone' && upper(selection.zoneName) === upper(z);
+      if (isSel) clearSelection(); else selectZone(z);
+    });
   }
   for (const caret of root.querySelectorAll('.sysCaret')) {
     caret.addEventListener('click', () => {
@@ -938,6 +956,7 @@ function stopDashes() {
 
 function clearSelection() {
   selection = null;
+  resetFocusReveal(); // re-collapse any neighbors a focused zone had revealed
   if (cy) cy.elements().removeClass('sel linked preview');
   syncZonePicker(null);
   updateZoneHighlights();
@@ -953,6 +972,45 @@ function clearSelection() {
   renderSystemsTree();
   updateMiniChart();
   if (playback) updateTime();
+}
+
+// graph vertex ids of the zone's immediate neighbors that are currently
+// grouped or hidden — the ones a reveal must pull out. Neighbors already
+// shown individually are skipped, so the common (ungrouped) view needs no
+// rebuild on focus.
+function revealCandidates(zoneName) {
+  const out = new Set();
+  if (!units || !graph || !zoneName) return out;
+  const zv = graphZoneVertexByName(zoneName);
+  if (!zv) return out;
+  for (const el of graph.elements) {
+    if (!el.data.source) continue;
+    let other = null;
+    if (el.data.source === zv.id) other = el.data.target;
+    else if (el.data.target === zv.id) other = el.data.source;
+    if (!other) continue;
+    const u = units.unitOf[other];
+    if (u && (hiddenSet.has(u) || collapsedSet.has(u))) out.add(other);
+  }
+  return out;
+}
+
+// rebuild the cy display from the current grouping + reveal sets, preserving
+// the active selection (unlike rebuildDisplay, which clears it)
+function rebuildDisplayKeepSelection() {
+  if (!cy || !units) return;
+  createCy(buildDisplayElements());
+  applyLayout();
+  applyPlaybackToGraph();
+}
+
+// drop a focus reveal and re-collapse the neighbors (used when selecting
+// anything that isn't a zone). Returns whether a rebuild was needed.
+function resetFocusReveal() {
+  if (!focusReveal.size) return false;
+  focusReveal = new Set();
+  rebuildDisplayKeepSelection();
+  return true;
 }
 
 function graphZoneVertexByName(zoneName) {
@@ -1005,6 +1063,12 @@ function selectZone(zoneName) {
   const zv = graphZoneVertexByName(zoneName);
   selection = { kind: 'zone', zoneName: zv ? zv.v.name : zoneName };
   syncZonePicker(selection.zoneName);
+  // focus reveals the zone's immediate neighborhood: the edges touching it and
+  // the node at each far end, even when that node is grouped or hidden. Rebuild
+  // only when the reveal set actually changes what's displayed.
+  const hadReveal = focusReveal.size > 0;
+  focusReveal = revealCandidates(selection.zoneName);
+  if (cy && units && (focusReveal.size > 0 || hadReveal)) rebuildDisplayKeepSelection();
   if (cy) {
     cy.elements().removeClass('sel linked preview');
     if (zv) {
