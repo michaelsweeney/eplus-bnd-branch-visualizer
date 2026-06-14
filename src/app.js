@@ -20,7 +20,7 @@ cytoscape.use(cytoscapeFcose);
 export {
   $, esc, upper, geometry, graph, units, playback, currentTheme, playbackStats,
   selection, zoneOpacity, hiddenZones, selectedTimeIndex, zoneSeriesFor,
-  selectZone, clearSelection, graphZoneVertexByName, loopFamilyEdges
+  selectZone, clearSelection, graphZoneVertexByName, loopFamilyEdges, setTimeIndex
 };
 
 let cy = null;
@@ -788,6 +788,15 @@ $('rampPick').addEventListener('change', () => {
 });
 
 /* ── time / playback ─────────────────────────────────────────── */
+
+// set playback time from anywhere (chart scrub, etc.): move the slider then
+// run the normal update so branch readouts, 3D, and the marker all follow
+function setTimeIndex(idx) {
+  if (!playback) return;
+  const max = Number($('timeSlider').max) || 0;
+  $('timeSlider').value = String(Math.max(0, Math.min(max, Math.round(idx))));
+  updateTime();
+}
 
 function updateTime() {
   if (!playback) return;

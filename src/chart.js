@@ -5,7 +5,7 @@
 // live ES module bindings.
 import {
   $, esc, playback, selection, graph, units, playbackStats, currentTheme,
-  selectedTimeIndex, zoneSeriesFor, graphZoneVertexByName, loopFamilyEdges
+  selectedTimeIndex, zoneSeriesFor, graphZoneVertexByName, loopFamilyEdges, setTimeIndex
 } from './app.js';
 import { flowUnit, tempUnit, dispTemp, dispFlow } from './palette.js';
 
@@ -234,18 +234,37 @@ export function drawMiniChart() {
 // hovered x. Pointer-events stay off the tip so it never steals the hover.
 const seriesShortLabel = sr => String(sr.label).split(' · ')[0];
 
-function chartIndexFromEvent(ev) {
+// clamp=true pins x to the plot ends (for scrubbing past the edges); when
+// false, off-plot x returns null so hover doesn't show outside the axes
+function chartIndexFromEvent(ev, clamp = false) {
   if (!miniGeom || !miniSeries.length) return null;
   const rect = $('miniChartCanvas').getBoundingClientRect();
   const plotL = miniGeom.padL / miniGeom.dpr;
   const plotR = rect.width - miniGeom.padR / miniGeom.dpr;
   const x = ev.clientX - rect.left;
-  if (x < plotL - 3 || x > plotR + 3) return null;
+  if (!clamp && (x < plotL - 3 || x > plotR + 3)) return null;
   const n = ((playback && playback.times) || []).length;
   if (n < 2) return null;
   const frac = Math.max(0, Math.min(1, (x - plotL) / (plotR - plotL)));
   return Math.round(frac * (n - 1));
 }
+
+// click/brush the chart to set the playback time (moves the marker + scrubber
+// and refreshes the branch readouts). Dragging scrubs continuously.
+let scrubbing = false;
+function onChartDown(ev) {
+  const idx = chartIndexFromEvent(ev, true);
+  if (idx == null) return;
+  scrubbing = true;
+  setTimeIndex(idx);
+  ev.preventDefault();
+}
+function onScrubMove(ev) {
+  if (!scrubbing) return;
+  const idx = chartIndexFromEvent(ev, true);
+  if (idx != null) setTimeIndex(idx);
+}
+function endScrub() { scrubbing = false; }
 
 function onChartHover(ev) {
   const idx = chartIndexFromEvent(ev);
@@ -301,6 +320,11 @@ export function alignScrubber() {
 export function initCharting() {
   const canvas = $('miniChartCanvas');
   canvas.addEventListener('mousemove', onChartHover);
+  canvas.addEventListener('mousedown', onChartDown);
+  canvas.style.cursor = 'crosshair';
+  // scrub continues while dragging anywhere, and ends on release
+  window.addEventListener('mousemove', onScrubMove);
+  window.addEventListener('mouseup', endScrub);
   canvas.addEventListener('mouseleave', () => {
     hoverIndex = null; $('chartTip').hidden = true; drawMiniChart();
   });
