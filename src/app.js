@@ -242,7 +242,7 @@ function buildCyStyle(theme) {
     { selector: 'edge.sel, edge.linked', style: {
         color: c.sel, 'font-weight': 'bold', 'text-background-opacity': 0.96, 'z-index': 20
     }},
-    { selector: '.faded', style: { opacity: 0.08, 'text-opacity': 0.08 } },
+    { selector: '.faded', style: { opacity: 0.28, 'text-opacity': 0.18 } },
     { selector: '.preview', style: {
         'underlay-color': c.preview, 'underlay-opacity': 0.20, 'underlay-padding': 4, 'z-index': 7
     }},

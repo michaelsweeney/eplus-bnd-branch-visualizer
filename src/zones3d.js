@@ -210,7 +210,7 @@ export function updateZoneHighlights() {
     // isolate: a zone the selection doesn't engage fades to faint context
     if (scopeZoneNames && !scopeZoneNames.has(upper(zn))) {
       child.material.color.setHex(child.userData.baseColor);
-      child.material.opacity = 0.06;
+      child.material.opacity = 0.14;
       continue;
     }
     const series = zoneSeriesFor(zn);
