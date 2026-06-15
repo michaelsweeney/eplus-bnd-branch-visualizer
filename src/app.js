@@ -1053,6 +1053,17 @@ function applyScope() {
     inScope = null; scopeZoneNames = null;
   }
   applyFilter();
+  updateIsolateChip();
+}
+// contextual GUI-wide indicator: shows only when the view is actually scoped
+// (isolate on AND a selection is dimming things), naming what it's isolated to
+function updateIsolateChip() {
+  const chip = $('isolateChip');
+  if (!chip) return;
+  const active = !!inScope && !!selection;
+  chip.hidden = !active;
+  if (active) $('isolateChipLabel').textContent =
+    selection.title || selection.zoneName || '(selection)';
 }
 
 function graphZoneVertexByName(zoneName) {
@@ -1753,6 +1764,7 @@ $('isolateToggle').addEventListener('click', () => {
   applyScope();        // recompute (or clear) the dim from the current selection
   updateZoneHighlights();
 });
+$('isolateChipClear').addEventListener('click', clearSelection); // un-isolate
 $('lockToggle').addEventListener('click', () => {
   graphLocked = !graphLocked;
   if (cy) cy.autoungrabify(graphLocked);
