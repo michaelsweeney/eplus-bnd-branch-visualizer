@@ -235,6 +235,21 @@
   #inspector .conn .ct { color: var(--accent); font-weight: 600; }
   #inspector .conn .obj { color: var(--ink-dim); }
   #inspector .empty { color: var(--ink-faint); font-style: italic; }
+  /* verbatim epJSON field dump — scrollable so long objects don't push the
+     rest of the inspector down. first column = field name (exact), wider. */
+  .epjsonBlock {
+    max-height: 230px; overflow: auto; margin-bottom: 6px;
+    border: 1px solid var(--hairline); border-radius: 4px;
+    background: rgba(255,255,255,0.015);
+  }
+  .epjsonBlock table { font: 400 10px/1.5 var(--mono); }
+  .epjsonBlock td { padding: 2px 8px; }
+  .epjsonBlock td:first-child {
+    max-width: 150px; color: var(--ink-dim); position: sticky; left: 0;
+    background: inherit;
+  }
+  .epjsonBlock tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+  .epjVal { color: var(--air); white-space: pre-wrap; }
   /* clickable inspector references → drive the shared selection */
   #inspectorBody span.ref { cursor: pointer; border-bottom: 1px dotted var(--ink-faint); }
   #inspectorBody span.ref:hover { color: var(--accent); border-bottom-color: var(--accent); }

@@ -1073,6 +1073,30 @@ function epjsonZoneByName(zoneName) {
   return key ? { key, obj: epjsonRaw.Zone[key] } : null;
 }
 
+// the raw epJSON object for a graph component, matched case-insensitively on
+// both object type (.bnd is UPPER, epJSON is CamelCase) and object name
+function epjsonObjectFor(type, name) {
+  if (!epjsonRaw) return null;
+  const typeKey = Object.keys(epjsonRaw).find(k => upper(k) === upper(type));
+  if (!typeKey || !epjsonRaw[typeKey] || typeof epjsonRaw[typeKey] !== 'object') return null;
+  const nameKey = Object.keys(epjsonRaw[typeKey]).find(k => upper(k) === upper(name));
+  return nameKey ? { typeKey, nameKey, obj: epjsonRaw[typeKey][nameKey] } : null;
+}
+
+// verbatim epJSON field dump: exact field names + values as entered, read-only,
+// in a scrollable block. Nested arrays/objects (extensible fields) are shown as
+// compact JSON so nothing is hidden.
+function epjsonFieldsHtml(obj) {
+  const rows = Object.entries(obj).map(([k, val]) => {
+    let v;
+    if (val === null) v = '<span class="empty">null</span>';
+    else if (typeof val === 'object') v = `<span class="epjVal">${esc(JSON.stringify(val))}</span>`;
+    else v = esc(String(val));
+    return `<tr><td>${esc(k)}</td><td>${v}</td></tr>`;
+  });
+  return `<div class="epjsonBlock"><table>${rows.join('')}</table></div>`;
+}
+
 // zone picker (inspector head): jump to any zone without hunting for it
 // in the graph or 3D. Sourced from both the .bnd graph zones and the
 // epJSON geometry zones, so it works with either loaded.
@@ -1434,6 +1458,10 @@ function renderVertexInspector(v) {
   if (v.group) rows.push(['loop', esc(v.group.replace('loop|', ''))]);
   if (v.zone) rows.push(['serves zone', ref('zone', v.zone, esc(v.zone))]);
   if (rows.length) html += kv(rows);
+  // verbatim epJSON fields for this object, if the model is loaded
+  const ep = epjsonObjectFor(v.type, v.name);
+  if (ep) html += `<h3>epJSON · ${esc(ep.typeKey)}</h3>${epjsonFieldsHtml(ep.obj)}`;
+  else if (epjsonRaw) html += `<h3>epJSON</h3><span class="empty">no matching ${esc(v.type)} object</span>`;
   html += '<h3>node pairs</h3><table>';
   for (const p of v.pairs) {
     html += `<tr><td>in</td><td>${p.inlet ? nodeInfoRow(p.inlet) : '—'}</td></tr>` +
