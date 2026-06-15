@@ -150,7 +150,7 @@ function renderMiniCache() {
   ctx.strokeRect(padL, padT, plotW, plotH);
   ctx.globalAlpha = 1;
 
-  ctx.font = `${9 * dpr}px 'IBM Plex Mono', monospace`;
+  ctx.font = `${9 * dpr}px 'JetBrains Mono', monospace`;
   ctx.fillStyle = inkStrong;
   if (hasTemp) {
     ctx.textAlign = 'right';

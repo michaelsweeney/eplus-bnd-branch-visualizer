@@ -176,7 +176,7 @@ function buildCyStyle(theme) {
     edge: '#b6c0cd', air: '#3a9367', water: '#3d72c4', crossover: '#c05050',
     sel: '#d97c00', linked: '#d97c00', preview: '#2f74b5',
     parentBg: '#000000', parentOpacity: 0.03,
-    font: 'IBM Plex Mono, monospace', fontSize: 9
+    font: 'JetBrains Mono, monospace', fontSize: 9
   } : {
     nodeBg: '#1a2230', nodeBorder: '#4d6076', label: '#7c8aa0',
     zoneBg: '#5a4a2e', zoneBorder: '#8a6a35', zoneLabel: '#a99263',
@@ -184,7 +184,7 @@ function buildCyStyle(theme) {
     edge: '#39455a', air: '#3a7a5c', water: '#3d6390', crossover: '#7c4a4a',
     sel: '#ffc66b', linked: '#ffc66b', preview: '#9ad0ff',
     parentBg: '#ffffff', parentOpacity: 0.02,
-    font: 'IBM Plex Mono, monospace', fontSize: 9
+    font: 'JetBrains Mono, monospace', fontSize: 9
   };
   const style = [
     { selector: 'node', style: {

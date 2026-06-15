@@ -13,8 +13,10 @@
     --cold: #3fc6e0;
     --air: #46b380;
     --water: #5290e8;
-    --mono: 'IBM Plex Mono', ui-monospace, monospace;
-    --sans: 'IBM Plex Sans Condensed', sans-serif;
+    /* --mono = model data / EnergyPlus identifiers & values;
+       --sans = UI chrome (the app's own labels) */
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -36,7 +38,7 @@
     user-select: none; white-space: nowrap;
   }
   #wordmark em { font-style: normal; color: var(--accent); }
-  #wordmark small { font: 500 9px/1 var(--mono); letter-spacing: 0.08em; color: var(--ink-faint); display: block; margin-top: 3px; }
+  #wordmark small { font: 500 9px/1 var(--sans); letter-spacing: 0.08em; color: var(--ink-faint); display: block; margin-top: 3px; }
   .chip {
     font: 500 11px/1 var(--mono); color: var(--ink-dim);
     border: 1px solid var(--hairline-2); border-radius: 3px;
@@ -90,7 +92,7 @@
   select {
     appearance: none; background: var(--panel-2); color: var(--ink);
     border: 1px solid var(--hairline-2); border-radius: 3px;
-    font: 500 11px var(--mono); padding: 5px 18px 5px 8px; cursor: pointer;
+    font: 500 11px var(--sans); padding: 5px 18px 5px 8px; cursor: pointer;
     background-image: linear-gradient(45deg, transparent 50%, var(--ink-dim) 50%), linear-gradient(135deg, var(--ink-dim) 50%, transparent 50%);
     background-position: calc(100% - 10px) 55%, calc(100% - 6px) 55%;
     background-size: 4px 4px;
@@ -113,13 +115,13 @@
     background: rgba(255,255,255,0.015);
   }
   .paneHead .paneTitle {
-    font: 600 10px/1 var(--mono); letter-spacing: 0.18em; color: var(--ink-faint);
+    font: 600 10px/1 var(--sans); letter-spacing: 0.18em; color: var(--ink-faint);
   }
   .paneHead .tools { margin-left: auto; display: flex; gap: 6px; }
   .toolBtn {
     appearance: none; background: transparent; color: var(--ink-dim);
     border: 1px solid var(--hairline-2); border-radius: 3px;
-    font: 500 10px var(--mono); padding: 4px 9px; cursor: pointer;
+    font: 500 10px var(--sans); padding: 4px 9px; cursor: pointer;
     transition: color 0.15s, border-color 0.15s;
   }
   .toolBtn:hover { color: var(--ink); }
@@ -129,7 +131,7 @@
   #zone3d canvas { display: block; width: 100%; height: 100%; }
   #zone3dEmpty, #graphEmpty {
     position: absolute; inset: 32px 0 0 0; display: flex; align-items: center; justify-content: center;
-    color: var(--ink-faint); font: 400 12px var(--mono); padding: 20px; text-align: center;
+    color: var(--ink-faint); font: 400 12px var(--sans); padding: 20px; text-align: center;
     pointer-events: none;
   }
 
@@ -169,7 +171,7 @@
   #systems.closed #systemsHead { height: 100%; flex-direction: column; padding: 10px 0; gap: 8px; border-bottom: 0; }
   #systems.closed #systemsHead .paneTitle { writing-mode: vertical-rl; letter-spacing: 0.22em; }
   #systems.closed #systemsHead .tools { margin-left: 0; margin-top: auto; }
-  .sysLegend { font: 400 9px/1.4 var(--mono); color: var(--ink-faint); margin: 2px 2px 10px; }
+  .sysLegend { font: 400 9px/1.4 var(--sans); color: var(--ink-faint); margin: 2px 2px 10px; }
   .sysSection { margin-bottom: 12px; }
   .sysHead {
     display: flex; align-items: center; gap: 6px; padding: 3px 2px;
@@ -179,7 +181,7 @@
     appearance: none; background: none; border: 0; color: var(--ink-faint);
     cursor: pointer; font-size: 10px; padding: 0 2px; width: 16px;
   }
-  .sysTitle { font: 600 9px/1 var(--mono); letter-spacing: 0.14em; color: var(--ink-dim); flex: 1; }
+  .sysTitle { font: 600 9px/1 var(--sans); letter-spacing: 0.14em; color: var(--ink-dim); flex: 1; }
   .sysCount { font: 400 9px/1 var(--mono); color: var(--ink-faint); }
   .sysRow {
     display: flex; align-items: center; gap: 6px; padding: 3px 2px 3px 20px;
@@ -225,7 +227,7 @@
   #inspectorBody::-webkit-scrollbar { width: 8px; }
   #inspectorBody::-webkit-scrollbar-thumb { background: var(--hairline-2); border-radius: 4px; }
   #inspector h2 {
-    margin: 0 0 4px; font: 600 15px/1.25 var(--sans); color: #eef3fb; word-break: break-word;
+    margin: 0 0 4px; font: 600 15px/1.25 var(--mono); color: #eef3fb; word-break: break-word;
   }
   #inspector .kindChip {
     display: inline-block; font: 600 9px/1 var(--mono); letter-spacing: 0.16em;
@@ -233,7 +235,7 @@
     padding: 4px 7px; margin: 4px 0 14px;
   }
   #inspector h3 {
-    font: 600 9px/1 var(--mono); letter-spacing: 0.16em; text-transform: uppercase;
+    font: 600 9px/1 var(--sans); letter-spacing: 0.16em; text-transform: uppercase;
     color: var(--ink-faint); margin: 18px 0 6px;
     border-bottom: 1px solid var(--hairline); padding-bottom: 5px;
   }
@@ -268,7 +270,7 @@
   #inspectorBody .conn.ref { cursor: pointer; }
   #inspectorBody .conn.ref:hover { border-color: var(--accent-dim); background: rgba(255,198,107,0.07); }
   body.light #inspectorBody .conn.ref:hover { background: rgba(217,124,0,0.07); }
-  #inspector .hintList { color: var(--ink-dim); font: 400 11px/1.9 var(--mono); padding-left: 16px; margin: 8px 0; }
+  #inspector .hintList { color: var(--ink-dim); font: 400 11px/1.9 var(--sans); padding-left: 16px; margin: 8px 0; }
   .suspicious { color: var(--hot); font-weight: 600; }
 
   /* ── transport bar ───────────────────────────────────────── */
@@ -324,12 +326,12 @@
   #dropToast {
     position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%) translateY(8px);
     background: #1a2230; border: 1px solid var(--accent-dim); border-radius: 6px;
-    color: var(--ink); font: 500 12px var(--mono); padding: 10px 18px;
+    color: var(--ink); font: 500 12px var(--sans); padding: 10px 18px;
     opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; z-index: 30;
   }
   #dropToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  #loadStatus { font: 400 10px/1.5 var(--mono); color: var(--ink-faint); white-space: nowrap; }
+  #loadStatus { font: 400 10px/1.5 var(--sans); color: var(--ink-faint); white-space: nowrap; }
 
 
 
@@ -373,7 +375,7 @@ body.light .sysRow.selected { background: rgba(217,124,0,0.10); }
 #miniLegend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
 #chartEmpty {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  color: var(--ink-faint); font: 400 11px var(--mono); pointer-events: none;
+  color: var(--ink-faint); font: 400 11px var(--sans); pointer-events: none;
 }
 #chartTip {
   position: absolute; z-index: 12; pointer-events: none;
@@ -391,7 +393,7 @@ body.light #chartTip { box-shadow: 0 4px 14px rgba(40,50,70,0.18); }
 /* slider embedded in a pane head (3D zone opacity) */
 .headSlider {
   display: flex; align-items: center; gap: 6px;
-  font: 500 9px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase;
+  font: 500 9px/1 var(--sans); letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--ink-faint);
 }
 .headSlider input[type="range"] {
@@ -432,7 +434,7 @@ body.light #chartTip { box-shadow: 0 4px 14px rgba(40,50,70,0.18); }
 body.light #settingsPanel { box-shadow: 0 8px 26px rgba(40,50,70,0.2); }
 .setRow { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .setRow > label {
-  font: 600 9px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase;
+  font: 600 9px/1 var(--sans); letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--ink-faint);
 }
 .seg2 { display: flex; border: 1px solid var(--hairline-2); border-radius: 4px; overflow: hidden; }
@@ -453,12 +455,12 @@ body.light .seg2 button.on { background: #e9eef5; color: #1f2937; }
 #ctxMenu.show { display: block; }
 body.light #ctxMenu { box-shadow: 0 8px 26px rgba(40,50,70,0.2); }
 .ctxHead {
-  font: 600 9px/1.3 var(--mono); letter-spacing: 0.12em; text-transform: uppercase;
+  font: 600 9px/1.3 var(--sans); letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--ink-faint); padding: 6px 10px 3px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ctxItem {
-  font: 500 11px/1.3 var(--mono); color: var(--ink);
+  font: 500 11px/1.3 var(--sans); color: var(--ink);
   padding: 7px 10px; border-radius: 4px; cursor: pointer;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
