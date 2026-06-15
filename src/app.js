@@ -176,7 +176,7 @@ function buildCyStyle(theme) {
     edge: '#b6c0cd', air: '#3a9367', water: '#3d72c4', crossover: '#c05050',
     sel: '#d97c00', linked: '#d97c00', preview: '#2f74b5',
     parentBg: '#000000', parentOpacity: 0.03,
-    font: 'JetBrains Mono, monospace', fontSize: 9
+    font: 'JetBrains Mono, monospace', fontSize: 11
   } : {
     nodeBg: '#1a2230', nodeBorder: '#4d6076', label: '#7c8aa0',
     zoneBg: '#5a4a2e', zoneBorder: '#8a6a35', zoneLabel: '#a99263',
@@ -184,7 +184,7 @@ function buildCyStyle(theme) {
     edge: '#39455a', air: '#3a7a5c', water: '#3d6390', crossover: '#7c4a4a',
     sel: '#ffc66b', linked: '#ffc66b', preview: '#9ad0ff',
     parentBg: '#ffffff', parentOpacity: 0.02,
-    font: 'JetBrains Mono, monospace', fontSize: 9
+    font: 'JetBrains Mono, monospace', fontSize: 11
   };
   const style = [
     { selector: 'node', style: {
@@ -230,7 +230,7 @@ function buildCyStyle(theme) {
         opacity: 0.75,
         // node-state readout (temp/flow at current time) — only sel/linked
         // edges carry a non-empty stateLabel (set in applyPlaybackToGraph)
-        label: 'data(stateLabel)', 'font-size': 8, 'font-family': c.font,
+        label: 'data(stateLabel)', 'font-size': 10, 'font-family': c.font,
         color: c.label, 'text-background-color': c.nodeBg,
         'text-background-opacity': 0.92, 'text-background-padding': 2,
         'text-background-shape': 'roundrectangle', 'edge-text-rotation': 'none',

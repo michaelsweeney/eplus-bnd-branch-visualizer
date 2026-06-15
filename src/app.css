@@ -22,7 +22,7 @@
   html, body { height: 100%; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
-    font: 13px/1.45 var(--sans);
+    font: 16px/1.45 var(--sans);
     display: flex; flex-direction: column; height: 100vh; overflow: hidden;
   }
 
@@ -34,13 +34,13 @@
     border-bottom: 1px solid var(--hairline);
   }
   #wordmark {
-    font: 700 17px/1 var(--sans); letter-spacing: 0.14em; color: #e8eef8;
+    font: 700 20px/1 var(--sans); letter-spacing: 0.14em; color: #e8eef8;
     user-select: none; white-space: nowrap;
   }
   #wordmark em { font-style: normal; color: var(--accent); }
-  #wordmark small { font: 500 9px/1 var(--sans); letter-spacing: 0.08em; color: var(--ink-faint); display: block; margin-top: 3px; }
+  #wordmark small { font: 500 11px/1 var(--sans); letter-spacing: 0.08em; color: var(--ink-faint); display: block; margin-top: 3px; }
   .chip {
-    font: 500 11px/1 var(--mono); color: var(--ink-dim);
+    font: 500 13px/1 var(--mono); color: var(--ink-dim);
     border: 1px solid var(--hairline-2); border-radius: 3px;
     padding: 5px 8px; background: var(--panel-2); white-space: nowrap;
   }
@@ -54,7 +54,7 @@
     text-overflow: ellipsis; white-space: nowrap; }
   #isolateChipClear {
     appearance: none; border: 0; background: none; cursor: pointer;
-    color: var(--accent-dim); font: 600 11px var(--mono); padding: 0 0 0 8px;
+    color: var(--accent-dim); font: 600 13px var(--mono); padding: 0 0 0 8px;
   }
   #isolateChipClear:hover { color: var(--accent); }
   #spacer { flex: 1; }
@@ -63,7 +63,7 @@
   #metric { display: flex; border: 1px solid var(--hairline-2); border-radius: 4px; overflow: hidden; }
   #metric button {
     appearance: none; border: 0; background: var(--panel-2); color: var(--ink-dim);
-    font: 600 11px/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase;
+    font: 600 13px/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase;
     padding: 8px 14px; cursor: pointer; transition: background 0.15s, color 0.15s;
   }
   #metric button + button { border-left: 1px solid var(--hairline-2); }
@@ -74,7 +74,7 @@
 
   /* legend */
   #legend { display: flex; gap: 14px; align-items: center; }
-  .legendItem { display: flex; align-items: center; gap: 6px; font: 400 10px/1 var(--mono); color: var(--ink-dim); }
+  .legendItem { display: flex; align-items: center; gap: 6px; font: 400 12px/1 var(--mono); color: var(--ink-dim); }
   #legendSystem { gap: 11px; }
   .sysKey { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; opacity: 0.85; transition: opacity 0.12s; }
   .sysKey:hover { opacity: 1; }
@@ -85,14 +85,14 @@
   .scaleIn {
     width: 42px; background: var(--panel-2); color: var(--ink);
     border: 1px solid var(--hairline-2); border-radius: 3px;
-    font: 500 10px var(--mono); padding: 3px 4px; text-align: right;
+    font: 500 12px var(--mono); padding: 3px 4px; text-align: right;
   }
   .scaleIn:focus { outline: none; border-color: var(--accent-dim); }
 
   select {
     appearance: none; background: var(--panel-2); color: var(--ink);
     border: 1px solid var(--hairline-2); border-radius: 3px;
-    font: 500 11px var(--sans); padding: 5px 18px 5px 8px; cursor: pointer;
+    font: 500 13px var(--sans); padding: 5px 18px 5px 8px; cursor: pointer;
     background-image: linear-gradient(45deg, transparent 50%, var(--ink-dim) 50%), linear-gradient(135deg, var(--ink-dim) 50%, transparent 50%);
     background-position: calc(100% - 10px) 55%, calc(100% - 6px) 55%;
     background-size: 4px 4px;
@@ -115,13 +115,13 @@
     background: rgba(255,255,255,0.015);
   }
   .paneHead .paneTitle {
-    font: 600 10px/1 var(--sans); letter-spacing: 0.18em; color: var(--ink-faint);
+    font: 600 12px/1 var(--sans); letter-spacing: 0.18em; color: var(--ink-faint);
   }
   .paneHead .tools { margin-left: auto; display: flex; gap: 6px; }
   .toolBtn {
     appearance: none; background: transparent; color: var(--ink-dim);
     border: 1px solid var(--hairline-2); border-radius: 3px;
-    font: 500 10px var(--sans); padding: 4px 9px; cursor: pointer;
+    font: 500 12px var(--sans); padding: 4px 9px; cursor: pointer;
     transition: color 0.15s, border-color 0.15s;
   }
   .toolBtn:hover { color: var(--ink); }
@@ -131,7 +131,7 @@
   #zone3d canvas { display: block; width: 100%; height: 100%; }
   #zone3dEmpty, #graphEmpty {
     position: absolute; inset: 32px 0 0 0; display: flex; align-items: center; justify-content: center;
-    color: var(--ink-faint); font: 400 12px var(--sans); padding: 20px; text-align: center;
+    color: var(--ink-faint); font: 400 14px var(--sans); padding: 20px; text-align: center;
     pointer-events: none;
   }
 
@@ -171,7 +171,7 @@
   #systems.closed #systemsHead { height: 100%; flex-direction: column; padding: 10px 0; gap: 8px; border-bottom: 0; }
   #systems.closed #systemsHead .paneTitle { writing-mode: vertical-rl; letter-spacing: 0.22em; }
   #systems.closed #systemsHead .tools { margin-left: 0; margin-top: auto; }
-  .sysLegend { font: 400 9px/1.4 var(--sans); color: var(--ink-faint); margin: 2px 2px 10px; }
+  .sysLegend { font: 400 11px/1.4 var(--sans); color: var(--ink-faint); margin: 2px 2px 10px; }
   .sysSection { margin-bottom: 12px; }
   .sysHead {
     display: flex; align-items: center; gap: 6px; padding: 3px 2px;
@@ -179,10 +179,10 @@
   }
   .sysCaret {
     appearance: none; background: none; border: 0; color: var(--ink-faint);
-    cursor: pointer; font-size: 10px; padding: 0 2px; width: 16px;
+    cursor: pointer; font-size: 12px; padding: 0 2px; width: 16px;
   }
-  .sysTitle { font: 600 9px/1 var(--sans); letter-spacing: 0.14em; color: var(--ink-dim); flex: 1; }
-  .sysCount { font: 400 9px/1 var(--mono); color: var(--ink-faint); }
+  .sysTitle { font: 600 11px/1 var(--sans); letter-spacing: 0.14em; color: var(--ink-dim); flex: 1; }
+  .sysCount { font: 400 11px/1 var(--mono); color: var(--ink-faint); }
   .sysRow {
     display: flex; align-items: center; gap: 6px; padding: 3px 2px 3px 20px;
     border-radius: 3px; cursor: default;
@@ -190,7 +190,7 @@
   .sysRow:hover { background: rgba(255,255,255,0.04); }
   .sysRow.selected { background: rgba(255,198,107,0.12); }
   .sysLabel {
-    font: 400 10px/1.3 var(--mono); color: var(--ink); flex: 1; cursor: pointer;
+    font: 400 12px/1.3 var(--mono); color: var(--ink); flex: 1; cursor: pointer;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .sysLabel:hover { color: var(--accent); }
@@ -200,7 +200,7 @@
   .dseg {
     appearance: none; background: none; border: 0; padding: 0; width: 13px;
     text-align: center; cursor: pointer; opacity: 0.4;
-    font: 10px/1 var(--mono); color: var(--ink-faint);
+    font: 12px/1 var(--mono); color: var(--ink-faint);
     transition: opacity 0.1s, color 0.1s;
   }
   .dseg:hover { opacity: 0.85; }
@@ -211,12 +211,12 @@
   .dseg.on.z-shown { color: var(--air); }
   .dseg.on.z-hidden { color: var(--ink-dim); }
   .zoneLabel {
-    font: 400 10px/1.3 var(--mono); color: var(--ink); flex: 1; cursor: pointer;
+    font: 400 12px/1.3 var(--mono); color: var(--ink); flex: 1; cursor: pointer;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .zoneLabel:hover { color: var(--accent); }
   .sysSubHelper { opacity: 0.92; }
-  .sysSubHelper .sysTitle { font-size: 8px; }
+  .sysSubHelper .sysTitle { font-size: 10px; }
 
   /* ── inspector sidebar ───────────────────────────────────── */
   #inspector {
@@ -227,24 +227,24 @@
   #inspectorBody::-webkit-scrollbar { width: 8px; }
   #inspectorBody::-webkit-scrollbar-thumb { background: var(--hairline-2); border-radius: 4px; }
   #inspector h2 {
-    margin: 0 0 4px; font: 600 15px/1.25 var(--mono); color: #eef3fb; word-break: break-word;
+    margin: 0 0 4px; font: 600 18px/1.25 var(--mono); color: #eef3fb; word-break: break-word;
   }
   #inspector .kindChip {
-    display: inline-block; font: 600 9px/1 var(--mono); letter-spacing: 0.16em;
+    display: inline-block; font: 600 11px/1 var(--mono); letter-spacing: 0.16em;
     color: var(--accent); border: 1px solid var(--accent-dim); border-radius: 3px;
     padding: 4px 7px; margin: 4px 0 14px;
   }
   #inspector h3 {
-    font: 600 9px/1 var(--sans); letter-spacing: 0.16em; text-transform: uppercase;
+    font: 600 11px/1 var(--sans); letter-spacing: 0.16em; text-transform: uppercase;
     color: var(--ink-faint); margin: 18px 0 6px;
     border-bottom: 1px solid var(--hairline); padding-bottom: 5px;
   }
-  #inspector table { border-collapse: collapse; width: 100%; font: 400 11px/1.5 var(--mono); }
+  #inspector table { border-collapse: collapse; width: 100%; font: 400 13px/1.5 var(--mono); }
   #inspector td { padding: 3px 8px 3px 0; vertical-align: top; word-break: break-word; color: var(--ink); }
   #inspector td:first-child { color: var(--ink-dim); white-space: nowrap; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
   #inspector .conn {
     padding: 6px 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--hairline);
-    border-radius: 4px; margin-bottom: 5px; font: 400 11px/1.5 var(--mono); word-break: break-word;
+    border-radius: 4px; margin-bottom: 5px; font: 400 13px/1.5 var(--mono); word-break: break-word;
   }
   #inspector .conn .ct { color: var(--accent); font-weight: 600; }
   #inspector .conn .obj { color: var(--ink-dim); }
@@ -256,7 +256,7 @@
     border: 1px solid var(--hairline); border-radius: 4px;
     background: rgba(255,255,255,0.015);
   }
-  .epjsonBlock table { font: 400 10px/1.5 var(--mono); }
+  .epjsonBlock table { font: 400 12px/1.5 var(--mono); }
   .epjsonBlock td { padding: 2px 8px; }
   .epjsonBlock td:first-child {
     max-width: 150px; color: var(--ink-dim); position: sticky; left: 0;
@@ -270,7 +270,7 @@
   #inspectorBody .conn.ref { cursor: pointer; }
   #inspectorBody .conn.ref:hover { border-color: var(--accent-dim); background: rgba(255,198,107,0.07); }
   body.light #inspectorBody .conn.ref:hover { background: rgba(217,124,0,0.07); }
-  #inspector .hintList { color: var(--ink-dim); font: 400 11px/1.9 var(--sans); padding-left: 16px; margin: 8px 0; }
+  #inspector .hintList { color: var(--ink-dim); font: 400 13px/1.9 var(--sans); padding-left: 16px; margin: 8px 0; }
   .suspicious { color: var(--hot); font-weight: 600; }
 
   /* ── transport bar ───────────────────────────────────────── */
@@ -283,16 +283,16 @@
   #playBtn {
     appearance: none; width: 38px; height: 38px; border-radius: 50%;
     border: 1px solid var(--hairline-2); background: var(--panel-2); color: var(--accent);
-    font-size: 13px; cursor: pointer; flex: none;
+    font-size: 16px; cursor: pointer; flex: none;
     display: flex; align-items: center; justify-content: center;
     transition: border-color 0.15s, box-shadow 0.15s;
   }
   #playBtn:hover { border-color: var(--accent-dim); box-shadow: 0 0 12px rgba(255,198,107,0.18); }
   #readout {
-    font: 600 13px/1.3 var(--mono); color: #eef3fb; width: 158px; flex: none;
+    font: 600 16px/1.3 var(--mono); color: #eef3fb; width: 158px; flex: none;
     white-space: nowrap;
   }
-  #readout small { display: block; font-weight: 400; font-size: 10px; color: var(--ink-dim); }
+  #readout small { display: block; font-weight: 400; font-size: 12px; color: var(--ink-dim); }
   /* scrubber is absolutely positioned so JS can line it up with the chart
      plot's x-axis (alignScrubber); playSpeed pins to the right */
   #scrubWrap {
@@ -317,7 +317,7 @@
   #monthRuler { position: relative; height: 14px; margin-top: 4px; }
   #monthRuler span {
     position: absolute; transform: translateX(1px);
-    font: 400 9px/1 var(--mono); letter-spacing: 0.1em; color: var(--ink-faint);
+    font: 400 11px/1 var(--mono); letter-spacing: 0.1em; color: var(--ink-faint);
     border-left: 1px solid var(--hairline-2); padding-left: 4px; height: 12px;
   }
   #transport select { flex: none; }
@@ -326,12 +326,12 @@
   #dropToast {
     position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%) translateY(8px);
     background: #1a2230; border: 1px solid var(--accent-dim); border-radius: 6px;
-    color: var(--ink); font: 500 12px var(--sans); padding: 10px 18px;
+    color: var(--ink); font: 500 14px var(--sans); padding: 10px 18px;
     opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; z-index: 30;
   }
   #dropToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  #loadStatus { font: 400 10px/1.5 var(--sans); color: var(--ink-faint); white-space: nowrap; }
+  #loadStatus { font: 400 12px/1.5 var(--sans); color: var(--ink-faint); white-space: nowrap; }
 
 
 
@@ -364,24 +364,24 @@ body.light .sysRow.selected { background: rgba(217,124,0,0.10); }
 /* ── chart pane (selection series, bottom strip) ─────────────── */
 #chartPane { flex: none; height: 170px; min-height: 0; border-top: 1px solid var(--hairline); }
 #miniChartTitle {
-  font: 600 9px/1.3 var(--mono); letter-spacing: 0.1em;
+  font: 600 11px/1.3 var(--mono); letter-spacing: 0.1em;
   color: var(--ink-dim); text-transform: uppercase;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
 #chartBody { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 6px 12px 6px; position: relative; cursor: crosshair; }
 #miniChartCanvas { width: 100%; flex: 1; min-height: 0; display: block; }
 #miniLegend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; }
-#miniLegend span { font: 400 9px/1.4 var(--mono); color: var(--ink-dim); white-space: nowrap; }
+#miniLegend span { font: 400 11px/1.4 var(--mono); color: var(--ink-dim); white-space: nowrap; }
 #miniLegend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
 #chartEmpty {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  color: var(--ink-faint); font: 400 11px var(--sans); pointer-events: none;
+  color: var(--ink-faint); font: 400 13px var(--sans); pointer-events: none;
 }
 #chartTip {
   position: absolute; z-index: 12; pointer-events: none;
   background: var(--panel-2); border: 1px solid var(--hairline-2); border-radius: 5px;
   padding: 6px 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.4);
-  font: 400 10px/1.5 var(--mono); color: var(--ink); white-space: nowrap;
+  font: 400 12px/1.5 var(--mono); color: var(--ink); white-space: nowrap;
 }
 #chartTip[hidden] { display: none; }
 #chartTip .tipDate { color: var(--ink-dim); font-weight: 600; margin-bottom: 3px; letter-spacing: 0.04em; }
@@ -393,7 +393,7 @@ body.light #chartTip { box-shadow: 0 4px 14px rgba(40,50,70,0.18); }
 /* slider embedded in a pane head (3D zone opacity) */
 .headSlider {
   display: flex; align-items: center; gap: 6px;
-  font: 500 9px/1 var(--sans); letter-spacing: 0.1em; text-transform: uppercase;
+  font: 500 11px/1 var(--sans); letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--ink-faint);
 }
 .headSlider input[type="range"] {
@@ -420,7 +420,7 @@ body.light #chartTip { box-shadow: 0 4px 14px rgba(40,50,70,0.18); }
 #settingsBtn {
   appearance: none; background: var(--panel-2); color: var(--ink-dim);
   border: 1px solid var(--hairline-2); border-radius: 4px;
-  font-size: 14px; line-height: 1; padding: 6px 10px; cursor: pointer;
+  font-size: 17px; line-height: 1; padding: 6px 10px; cursor: pointer;
 }
 #settingsBtn:hover { color: var(--ink); }
 #settingsPanel {
@@ -434,13 +434,13 @@ body.light #chartTip { box-shadow: 0 4px 14px rgba(40,50,70,0.18); }
 body.light #settingsPanel { box-shadow: 0 8px 26px rgba(40,50,70,0.2); }
 .setRow { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .setRow > label {
-  font: 600 9px/1 var(--sans); letter-spacing: 0.14em; text-transform: uppercase;
+  font: 600 11px/1 var(--sans); letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--ink-faint);
 }
 .seg2 { display: flex; border: 1px solid var(--hairline-2); border-radius: 4px; overflow: hidden; }
 .seg2 button {
   appearance: none; border: 0; background: var(--panel-2); color: var(--ink-dim);
-  font: 600 11px/1 var(--sans); letter-spacing: 0.08em; padding: 7px 12px; cursor: pointer;
+  font: 600 13px/1 var(--sans); letter-spacing: 0.08em; padding: 7px 12px; cursor: pointer;
 }
 .seg2 button + button { border-left: 1px solid var(--hairline-2); }
 .seg2 button.on { background: #1d2736; color: #fff; }
@@ -455,12 +455,12 @@ body.light .seg2 button.on { background: #e9eef5; color: #1f2937; }
 #ctxMenu.show { display: block; }
 body.light #ctxMenu { box-shadow: 0 8px 26px rgba(40,50,70,0.2); }
 .ctxHead {
-  font: 600 9px/1.3 var(--sans); letter-spacing: 0.12em; text-transform: uppercase;
+  font: 600 11px/1.3 var(--sans); letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--ink-faint); padding: 6px 10px 3px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ctxItem {
-  font: 500 11px/1.3 var(--sans); color: var(--ink);
+  font: 500 13px/1.3 var(--sans); color: var(--ink);
   padding: 7px 10px; border-radius: 4px; cursor: pointer;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
