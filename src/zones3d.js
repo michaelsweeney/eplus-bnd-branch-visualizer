@@ -5,7 +5,8 @@
 import * as THREE from 'three';
 import {
   $, upper, geometry, currentTheme, playbackStats, selection, zoneOpacity,
-  hiddenZones, selectedTimeIndex, zoneSeriesFor, selectZone, clearSelection
+  hiddenZones, selectedTimeIndex, zoneSeriesFor, selectZone, clearSelection,
+  scopeZoneNames
 } from './app.js';
 import { colorForTemperature } from './palette.js';
 
@@ -204,6 +205,12 @@ export function updateZoneHighlights() {
       // surrounding context (or the whole building when nothing is selected)
       child.material.color.set('#ffc66b');
       child.material.opacity = 1;
+      continue;
+    }
+    // isolate: a zone the selection doesn't engage fades to faint context
+    if (scopeZoneNames && !scopeZoneNames.has(upper(zn))) {
+      child.material.color.setHex(child.userData.baseColor);
+      child.material.opacity = 0.06;
       continue;
     }
     const series = zoneSeriesFor(zn);

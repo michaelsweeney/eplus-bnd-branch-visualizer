@@ -201,14 +201,8 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .zoneLabel:hover { color: var(--accent); }
-  .zfocus {
-    appearance: none; background: none; border: 0; padding: 0; width: 14px;
-    flex: none; text-align: center; cursor: pointer; opacity: 0.4;
-    font: 10px/1 var(--mono); color: var(--ink-faint);
-    transition: opacity 0.1s, color 0.1s;
-  }
-  .zfocus:hover { opacity: 0.85; color: var(--accent); }
-  .zfocus.on { opacity: 1; color: var(--accent); }
+  .sysSubHelper { opacity: 0.92; }
+  .sysSubHelper .sysTitle { font-size: 8px; }
 
   /* ── inspector sidebar ───────────────────────────────────── */
   #inspector {

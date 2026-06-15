@@ -27,10 +27,26 @@ Feature queue for the prototype, roughly ordered. Items marked (Mike,
 
 ## Done (this session)
 
+- **Isolate mode** (default on): selecting any item dims everything not
+  graph-connected to it. Scope is *derived from* the selection (never a
+  persistent set) by walking the **unit** graph and treating plant loops
+  as terminal boundaries — measured 14–24% in-scope vs 57–74% for naive
+  edge-BFS on shared-plant models. Rendered as dim (one `.faded` writer
+  in `applyFilter`, unioned with the loop filter; out-of-scope zones go
+  faint in 3D). Toolbar toggle. Consolidated the earlier two-system
+  "focus": deleted `focusReveal`, the per-row ◉/◎ button, and the
+  auto-un-hide-on-select footgun — focus = select = isolate, one path.
+- **"Show / hide all zones"** helper at the top of the systems tree.
+- **Click/brush the chart** sets playback time (marker, scrubber, branch
+  readouts, 3D all follow). **Graph lock** (default): drag pans, unlock
+  to rearrange nodes.
+- **Public repo + GitHub Pages landing**:
+  https://michaelsweeney.github.io/eplus-bnd-branch-visualizer/ (served
+  from `main`/`docs`, modeled on the timestep site). MIT licensed.
 - **Public demo deployed**: https://eplus-bnd-viz.pages.dev (Cloudflare
   Pages project `eplus-bnd-viz`, wrangler-deployed from `npm run
   build:demo` output — decimated playback: offices 3-hourly, hospital
-  4-hourly, values rounded to 3 decimals). Repo stays private at
+  4-hourly, values rounded to 3 decimals). Repo is public at
   github.com/michaelsweeney/eplus-bnd-branch-visualizer. Redeploy:
   `npm run build:demo && npx wrangler pages deploy dist --project-name
   eplus-bnd-viz`. BYO-model docs in README.

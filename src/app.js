@@ -20,7 +20,8 @@ cytoscape.use(cytoscapeFcose);
 export {
   $, esc, upper, geometry, graph, units, playback, currentTheme, playbackStats,
   selection, zoneOpacity, hiddenZones, selectedTimeIndex, zoneSeriesFor,
-  selectZone, clearSelection, graphZoneVertexByName, loopFamilyEdges, setTimeIndex
+  selectZone, clearSelection, graphZoneVertexByName, loopFamilyEdges, setTimeIndex,
+  scopeZoneNames
 };
 
 let cy = null;
@@ -42,10 +43,14 @@ let hiddenZones = new Set();   // UPPER(zone) names hidden from graph + 3D
 let units = null;             // { units, unitOf } from assignUnits
 let collapsedSet = new Set(); // unit ids currently collapsed
 let hiddenSet = new Set();    // unit ids currently not displayed at all
-let focusReveal = new Set();  // graph vertex ids force-shown for the focused
-                              // zone (its immediate neighbors), overriding
-                              // grouping/hiding so a zone's connections show
 let graphLocked = true;       // nodes ungrabbable by default → click-drag pans
+// Isolate: when on, selecting anything dims everything that isn't graph-
+// connected to it ("show what touches it"). Scope is DERIVED from selection,
+// recomputed on each select — never a persistent set. inScope holds graph
+// scope-keys (unit ids / pseudo-keys), scopeZoneNames the in-scope zones for 3D.
+let isolateMode = true;
+let inScope = null;           // Set of scope-keys, or null = no isolation active
+let scopeZoneNames = null;    // Set of UPPER zone names in scope, or null
 // one selection drives every view: {kind:'zone'|'vertex'|'edge', ...}
 let selection = null;
 
@@ -265,12 +270,8 @@ function buildDisplayElements() {
   if (!units || (collapsedSet.size === 0 && hiddenSet.size === 0))
     return structuredClone(graph.elements);
   const unitIdOf = id => units.unitOf[id] || null;
-  // a focus-revealed node is always shown individually (never hidden, never
-  // collapsed into its unit's proxy) so the focused zone's connection lands
-  // on the real component, not a grouped box
-  const isHidden = id => { const u = unitIdOf(id); return !!(u && hiddenSet.has(u) && !focusReveal.has(id)); };
+  const isHidden = id => { const u = unitIdOf(id); return !!(u && hiddenSet.has(u)); };
   const proxyOf = id => {
-    if (focusReveal.has(id)) return null;
     const u = unitIdOf(id);
     return u && !hiddenSet.has(u) && collapsedSet.has(u) ? u : null;
   };
@@ -321,7 +322,6 @@ function buildDisplayElements() {
 
 function rebuildDisplay() {
   if (!cy || !units) return;
-  focusReveal = new Set(); // grouping changed under us; drop any focus reveal
   clearSelection();
   createCy(buildDisplayElements());
   applyLayout();
@@ -434,11 +434,22 @@ function renderSystemsTree() {
     return;
   }
   const allIds = Object.keys(units.units);
+  const zoneNames = allZoneNames();
+  const shownN = zoneNames.filter(z => !hiddenZones.has(upper(z))).length;
+  const aggZ = shownN === zoneNames.length ? 'shown' : shownN === 0 ? 'hidden' : 'mixed';
   let html = `<div class="sysHead sysMaster">
     <span class="sysCaretPad"></span>
     ${detailSegHtml(aggDetail(allIds), ' data-all="1"')}
     <span class="sysTitle">ALL SYSTEMS</span>
     <span class="sysCount">${allIds.length}</span>
+  </div>`;
+  // quick "show / hide all zones" helper at the top, mirroring the ZONES
+  // section's all-toggle so it's reachable without scrolling
+  if (zoneNames.length) html += `<div class="sysHead sysSubHelper">
+    <span class="sysCaretPad"></span>
+    ${zoneSegHtml(aggZ, ' data-zoneall="1"')}
+    <span class="sysTitle">SHOW / HIDE ZONES</span>
+    <span class="sysCount">${zoneNames.length}</span>
   </div>`;
   for (const [type, title] of SYS_SECTIONS) {
     const list = Object.values(units.units)
@@ -463,11 +474,8 @@ function renderSystemsTree() {
       '</div></div>';
   }
   // ZONES section: a show/hide filter over every zone (graph box + 3D)
-  const zoneNames = allZoneNames();
   if (zoneNames.length) {
     const zOpen = sysSectionOpen.zones;
-    const shownN = zoneNames.filter(z => !hiddenZones.has(upper(z))).length;
-    const aggZ = shownN === zoneNames.length ? 'shown' : shownN === 0 ? 'hidden' : 'mixed';
     html += `<div class="sysSection">
       <div class="sysHead">
         <button class="sysCaret" data-type="zones">${zOpen ? '▾' : '▸'}</button>
@@ -480,7 +488,6 @@ function renderSystemsTree() {
         const off = hiddenZones.has(upper(z));
         const sel = selection && selection.kind === 'zone' && upper(selection.zoneName) === upper(z);
         return `<div class="sysRow${sel ? ' selected' : ''}${off ? ' off' : ''}" data-zone="${esc(z)}">
-          <button class="zfocus${sel ? ' on' : ''}" data-zfocus="${esc(z)}" title="${sel ? 'focused — click to clear' : 'focus this zone (reveal its connections)'}">${sel ? '◉' : '◎'}</button>
           ${zoneSegHtml(off ? 'hidden' : 'shown', ` data-zone="${esc(z)}"`)}
           <span class="zoneLabel" data-zone="${esc(z)}" title="${esc(z)} — click to focus">${esc(z)}</span>
         </div>`;
@@ -517,15 +524,6 @@ function renderSystemsTree() {
   }
   for (const lbl of root.querySelectorAll('.zoneLabel')) {
     lbl.addEventListener('click', () => selectZone(lbl.dataset.zone));
-  }
-  // explicit focus toggle: focus the zone, or clear if it's already focused
-  for (const b of root.querySelectorAll('.zfocus')) {
-    b.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const z = b.dataset.zfocus;
-      const isSel = selection && selection.kind === 'zone' && upper(selection.zoneName) === upper(z);
-      if (isSel) clearSelection(); else selectZone(z);
-    });
   }
   for (const caret of root.querySelectorAll('.sysCaret')) {
     caret.addEventListener('click', () => {
@@ -967,9 +965,9 @@ function stopDashes() {
 
 function clearSelection() {
   selection = null;
-  resetFocusReveal(); // re-collapse any neighbors a focused zone had revealed
   if (cy) cy.elements().removeClass('sel linked preview');
   syncZonePicker(null);
+  applyScope(); // no selection → clears the isolate dim
   updateZoneHighlights();
   $('inspectorBody').innerHTML =
     '<span class="empty">Nothing selected.</span>' +
@@ -985,43 +983,76 @@ function clearSelection() {
   if (playback) updateTime();
 }
 
-// graph vertex ids of the zone's immediate neighbors that are currently
-// grouped or hidden — the ones a reveal must pull out. Neighbors already
-// shown individually are skipped, so the common (ungrouped) view needs no
-// rebuild on focus.
-function revealCandidates(zoneName) {
-  const out = new Set();
-  if (!units || !graph || !zoneName) return out;
-  const zv = graphZoneVertexByName(zoneName);
-  if (!zv) return out;
-  for (const el of graph.elements) {
-    if (!el.data.source) continue;
-    let other = null;
-    if (el.data.source === zv.id) other = el.data.target;
-    else if (el.data.target === zv.id) other = el.data.source;
-    if (!other) continue;
-    const u = units.unitOf[other];
-    if (u && (hiddenSet.has(u) || collapsedSet.has(u))) out.add(other);
+/* ── isolate scope (derived from selection) ──────────────────── */
+// A vertex's scope-key: its unit id (so a whole unit scopes together), or a
+// pseudo-key for unitless / zone vertices. A unit proxy node uses its own id.
+function nodeScopeKey(id) {
+  if (units && units.units[id]) return id;        // already a unit proxy id
+  if (units && units.unitOf[id]) return units.unitOf[id];
+  return 'v:' + id;
+}
+// unit-level adjacency over the full graph: two scope-keys are linked if any
+// edge connects a vertex in one to a vertex in the other.
+function unitAdjacency() {
+  const adj = new Map();
+  const link = (a, b) => {
+    if (a === b) return;
+    (adj.get(a) || adj.set(a, new Set()).get(a)).add(b);
+    (adj.get(b) || adj.set(b, new Set()).get(b)).add(a);
+  };
+  if (graph) for (const el of graph.elements)
+    if (el.data.source) link(nodeScopeKey(el.data.source), nodeScopeKey(el.data.target));
+  return adj;
+}
+// the scope-keys to seed the walk from for a given selection
+function scopeSeeds(sel) {
+  const ids = [];
+  if (!graph) return ids;
+  if (sel.kind === 'zone') { const zv = graphZoneVertexByName(sel.zoneName); if (zv) ids.push(zv.id); }
+  else if (sel.kind === 'vertex') ids.push(sel.vertexId);
+  else if (sel.kind === 'unit') { const u = units && units.units[sel.unitId]; if (u) ids.push(...u.members); }
+  else if (sel.kind === 'edge') {
+    for (const v of Object.values(graph.vertices))
+      if (v.pairs.some(p => p.inlet === sel.nodeName || p.outlet === sel.nodeName)) ids.push(v.id);
+  } else if (sel.kind === 'loopFamily') {
+    const edges = cy && loopFamilyEdges(sel.familyKey);
+    if (edges) edges.forEach(e => { ids.push(e.data('source'), e.data('target')); });
   }
-  return out;
+  return ids.map(nodeScopeKey);
 }
-
-// rebuild the cy display from the current grouping + reveal sets, preserving
-// the active selection (unlike rebuildDisplay, which clears it)
-function rebuildDisplayKeepSelection() {
-  if (!cy || !units) return;
-  createCy(buildDisplayElements());
-  applyLayout();
-  applyPlaybackToGraph();
+// "Walk the tree": BFS the unit graph from the seeds, but treat plant/condenser
+// loop units as TERMINAL (include them as a boundary, don't traverse through —
+// otherwise a shared central plant drags in every other zone on it). Returns
+// the in-scope key set + the in-scope zone names (UPPER) for the 3D view.
+function computeScope(sel) {
+  if (!graph || !units) return { keys: null, zones: null };
+  const adj = unitAdjacency();
+  const seeds = new Set(scopeSeeds(sel));
+  if (!seeds.size) return { keys: null, zones: null };
+  const visited = new Set(seeds);
+  const queue = [...seeds];
+  while (queue.length) {
+    const k = queue.shift();
+    const u = !k.startsWith('v:') && units.units[k];
+    const terminal = u && u.type === 'plant' && !seeds.has(k); // plant boundary
+    if (terminal) continue;
+    for (const nb of (adj.get(k) || [])) if (!visited.has(nb)) { visited.add(nb); queue.push(nb); }
+  }
+  const zones = new Set();
+  for (const k of visited) if (k.startsWith('v:ZONE|')) zones.add(upper(k.slice('v:ZONE|'.length)));
+  return { keys: visited, zones };
 }
-
-// drop a focus reveal and re-collapse the neighbors (used when selecting
-// anything that isn't a zone). Returns whether a rebuild was needed.
-function resetFocusReveal() {
-  if (!focusReveal.size) return false;
-  focusReveal = new Set();
-  rebuildDisplayKeepSelection();
-  return true;
+// scope-key for a cy node (proxy → its id; real/zone vertex → nodeScopeKey)
+function cyScopeKey(n) { return n.data('isUnit') ? n.id() : nodeScopeKey(n.id()); }
+// recompute the isolate scope from the current selection and re-render the dim
+function applyScope() {
+  if (isolateMode && selection) {
+    const sc = computeScope(selection);
+    inScope = sc.keys; scopeZoneNames = sc.zones;
+  } else {
+    inScope = null; scopeZoneNames = null;
+  }
+  applyFilter();
 }
 
 function graphZoneVertexByName(zoneName) {
@@ -1074,20 +1105,6 @@ function selectZone(zoneName) {
   const zv = graphZoneVertexByName(zoneName);
   selection = { kind: 'zone', zoneName: zv ? zv.v.name : zoneName };
   syncZonePicker(selection.zoneName);
-  // focusing an inactive zone reactivates it — show it on the graph again so
-  // the focus (and its revealed connections) actually have something to land on
-  if (hiddenZones.has(upper(selection.zoneName))) {
-    const next = new Set(hiddenZones);
-    next.delete(upper(selection.zoneName));
-    hiddenZones = next;
-    applyZoneVisibility();
-  }
-  // focus reveals the zone's immediate neighborhood: the edges touching it and
-  // the node at each far end, even when that node is grouped or hidden. Rebuild
-  // only when the reveal set actually changes what's displayed.
-  const hadReveal = focusReveal.size > 0;
-  focusReveal = revealCandidates(selection.zoneName);
-  if (cy && units && (focusReveal.size > 0 || hadReveal)) rebuildDisplayKeepSelection();
   if (cy) {
     cy.elements().removeClass('sel linked preview');
     if (zv) {
@@ -1100,6 +1117,7 @@ function selectZone(zoneName) {
       }
     }
   }
+  applyScope(); // isolate: dim everything not connected to this zone
   updateZoneHighlights();
   renderZoneInspector(selection.zoneName, zv);
   renderSystemsTree();
@@ -1126,6 +1144,7 @@ function selectVertex(vertexId) {
       if (zv) cy.getElementById(zv.id).addClass('linked');
     }
   }
+  applyScope();
   updateZoneHighlights(); // lights v.zone in 3D via selection.zoneName
   renderVertexInspector(v);
   renderSystemsTree();
@@ -1140,6 +1159,7 @@ function selectEdge(edge) {
   cy.elements().removeClass('sel linked preview');
   edge.addClass('sel');
   edge.connectedNodes().addClass('linked');
+  applyScope();
   updateZoneHighlights();
   renderEdgeInspector(d, names);
   renderSystemsTree();
@@ -1162,6 +1182,7 @@ function selectLoopFamily(key) {
   cy.elements().removeClass('sel linked preview');
   edges.addClass('sel');
   edges.connectedNodes().addClass('linked');
+  applyScope();
   updateZoneHighlights();
   renderFamilyInspector(key, edges);
   renderSystemsTree();
@@ -1246,6 +1267,7 @@ function selectEdgeByNode(nodeName) {
   // last resort: node-only selection so the chart still tracks it
   selection = { kind: 'edge', nodeName, title: nodeName, zoneName: null };
   if (cy) cy.elements().removeClass('sel linked preview');
+  applyScope();
   updateZoneHighlights();
   renderSystemsTree();
   updateMiniChart();
@@ -1285,6 +1307,7 @@ function selectUnit(unitId, opts = {}) {
   if (opts.jump && focus && focus.nonempty()) {
     cy.animate({ fit: { eles: focus.closedNeighborhood(), padding: 90 }, duration: 350, easing: 'ease-in-out' });
   }
+  applyScope();
   updateZoneHighlights();
   renderUnitInspector(u);
   renderSystemsTree();
@@ -1618,6 +1641,10 @@ function applyLayout() {
   if (hiddenZones.size) applyZoneVisibility(); // reapply after the rebuild
 }
 
+// Single writer of the `.faded` (dim) class. Two sources, unioned: the loop
+// filter dropdown and the isolate scope (out-of-scope when a selection is
+// active and isolate is on). Selection emphasis (.sel/.linked) is always in
+// scope, so it never gets dimmed — precedence is removed › dimmed › emphasized.
 function applyFilter() {
   if (!cy) return;
   const loop = $('loopFilter').value;
@@ -1629,9 +1656,17 @@ function applyFilter() {
     const wired = inLoop.connectedEdges().connectedNodes().union(inLoop.connectedEdges());
     visible = inLoop.union(wired).union(wired.ancestors());
   }
-  cy.elements().difference(visible.union(visible.connectedEdges().filter(e =>
+  let faded = cy.elements().difference(visible.union(visible.connectedEdges().filter(e =>
     visible.contains(e.source()) && visible.contains(e.target())
-  ))).addClass('faded');
+  )));
+  if (inScope) {
+    const outOfScope = cy.elements().filter(el => {
+      if (el.isNode()) return !el.data('isGroup') && !inScope.has(cyScopeKey(el));
+      return !inScope.has(cyScopeKey(el.source())) || !inScope.has(cyScopeKey(el.target()));
+    });
+    faded = faded.union(outOfScope);
+  }
+  faded.addClass('faded');
 }
 
 
@@ -1680,6 +1715,16 @@ $('layoutMode').addEventListener('change', () => {
   }
 });
 $('fit').addEventListener('click', () => { if (cy) cy.fit(undefined, 30); });
+$('isolateToggle').addEventListener('click', () => {
+  isolateMode = !isolateMode;
+  const b = $('isolateToggle');
+  b.classList.toggle('on', isolateMode);
+  b.title = isolateMode
+    ? 'isolate on — selecting dims everything that doesn\'t touch it'
+    : 'isolate off — show all systems at full strength';
+  applyScope();        // recompute (or clear) the dim from the current selection
+  updateZoneHighlights();
+});
 $('lockToggle').addEventListener('click', () => {
   graphLocked = !graphLocked;
   if (cy) cy.autoungrabify(graphLocked);
