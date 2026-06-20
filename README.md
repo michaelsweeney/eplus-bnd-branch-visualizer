@@ -104,17 +104,6 @@ Cloudflare Pages' 25 MB file cap. Deploy with:
 npx wrangler pages deploy dist --project-name <name>
 ```
 
-Headless 3D screenshots need software WebGL:
-
-```sh
-google-chrome --headless --no-sandbox --enable-unsafe-swiftshader \
-  --screenshot=/tmp/shot.png --window-size=1400,900 \
-  --virtual-time-budget=15000 'http://localhost:5173/#t=4263'
-```
-
-Without WebGL the 3D view shows an explanatory message instead of a blank
-canvas.
-
 ## Inside
 
 - **`parsebnd.js`** — parser for the self-documenting `.bnd` record types

@@ -5,8 +5,7 @@
 // nesting expressed as leading whitespace. Names cannot contain commas
 // (IDF is comma-delimited), so a trim+split per line is safe.
 //
-// Classic script (no modules) so index.html works from file://; also
-// usable from node via module.exports for the test harness.
+// An ES module shared by the app and the node test suite.
 
 export function parseBnd(text) {
   const model = {
