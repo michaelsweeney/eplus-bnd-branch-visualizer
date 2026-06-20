@@ -9,12 +9,16 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test",
-    "collect:samples": "node scripts/collect-samples.mjs",
     "prep": "node scripts/prep-epjson.mjs",
     "export:playback": "node scripts/export-playback.mjs",
     "build:demo": "node scripts/build-demo-site.mjs"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/michaelsweeney/eplus-bnd-branch-visualizer.git"
+  },
+  "homepage": "https://eplus-bnd-viz.pages.dev/",
   "devDependencies": {
     "vite": "^8.0.16"
   },
