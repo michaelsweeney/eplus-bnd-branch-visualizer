@@ -65,6 +65,9 @@ function maybeApplyHashSelection() {
   if (maybeApplyHashSelection.done || !cy) return;
   const zoneName = new URLSearchParams(location.hash.replace(/^#/, '')).get('sel');
   if (!zoneName) { maybeApplyHashSelection.done = true; return; }
+  // a zone selection needs geometry; the bnd loads first, so defer (don't mark
+  // done) until geometry arrives — otherwise the selection is lost in the race
+  if (!geometry) return;
   maybeApplyHashSelection.done = true;
   selectZone(zoneName);
 }

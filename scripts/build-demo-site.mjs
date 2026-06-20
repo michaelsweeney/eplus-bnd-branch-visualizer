@@ -26,6 +26,14 @@ const run = (cmd, args, env = {}) => {
 };
 
 run('npx', ['vite', 'build'], { SKIP_PUBLIC_COPY: '1' });
+
+// vite's public copy is skipped above (it would pull in the huge demo-data);
+// copy the small root public assets (favicon, etc.) ourselves so they ship.
+for (const f of fs.readdirSync(path.join(root, 'public'))) {
+  const p = path.join(root, 'public', f);
+  if (fs.statSync(p).isFile()) fs.copyFileSync(p, path.join(root, 'dist', f));
+}
+
 fs.mkdirSync(dst, { recursive: true });
 
 for (const [name, { every }] of Object.entries(DATASETS)) {
