@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>BND·VIZ — EnergyPlus system explorer</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -16,8 +17,7 @@
     <option value="hospital">Hospital</option>
     <option value="small-office">Small Office PSZ</option>
   </select>
-  <div class="chip" id="datasetChip">no dataset</div>
-  <div class="chip isoChip" id="isolateChip" hidden>⊘ isolated&nbsp;·&nbsp;<b id="isolateChipLabel"></b><button id="isolateChipClear" title="clear isolation — show all systems">✕</button></div>
+  <div class="chip isoChip" id="isolateChip" hidden>isolated&nbsp;·&nbsp;<b id="isolateChipLabel"></b><button id="isolateChipClear" title="clear isolation — show all systems">✕</button></div>
   <div id="metric">
     <button data-metric="system">System</button>
     <button data-metric="temperature" class="on">Temperature</button>
@@ -26,11 +26,8 @@
   <div id="spacer"></div>
   <div id="legend">
     <div class="legendItem" id="legendSystem"></div>
-    <div class="legendItem" id="legendTemp"><span>temp</span><span class="legendBar" id="legendTempBar"></span>
-      <input class="scaleIn" id="scaleTempMin" title="temp scale min (blank = auto)"> –
-      <input class="scaleIn" id="scaleTempMax" title="temp scale max (blank = auto)"> <span id="legendTempUnitLbl">°C</span></div>
-    <div class="legendItem" id="legendFlow"><span>flow</span><span class="legendBar" id="legendFlowBar"></span>
-      0 – <input class="scaleIn" id="scaleFlowMax" title="flow scale max (blank = auto)"> <span id="legendFlowUnitLbl">kg/s</span></div>
+    <div class="legendItem" id="legendTemp"><span>temp</span><span class="legendBar" id="legendTempBar"></span></div>
+    <div class="legendItem" id="legendFlow"><span>flow</span><span class="legendBar" id="legendFlowBar"></span></div>
   </div>
   <div id="settingsWrap">
     <button id="settingsBtn" title="display settings">⚙</button>
@@ -54,6 +51,19 @@
           <option value="viridis">viridis</option>
           <option value="inferno">inferno</option>
         </select>
+      </div>
+      <div class="setRow"><label>temp range</label>
+        <div class="rangeRow">
+          <input class="scaleIn" id="scaleTempMin" title="temp scale min (blank = auto)"> –
+          <input class="scaleIn" id="scaleTempMax" title="temp scale max (blank = auto)">
+          <span class="unitLbl" id="legendTempUnitLbl">°C</span>
+        </div>
+      </div>
+      <div class="setRow"><label>flow range</label>
+        <div class="rangeRow">
+          0 – <input class="scaleIn" id="scaleFlowMax" title="flow scale max (blank = auto)">
+          <span class="unitLbl" id="legendFlowUnitLbl">kg/s</span>
+        </div>
       </div>
     </div>
   </div>
@@ -87,7 +97,7 @@
               <option value="organic">organic</option>
             </select>
             <button class="toolBtn on" id="isolateToggle" title="isolate on — selecting dims everything that doesn't touch it">isolate</button>
-            <button class="toolBtn on" id="lockToggle" title="nodes locked — click-drag pans. Unlock to rearrange nodes.">🔒 locked</button>
+            <button class="toolBtn on" id="lockToggle" title="nodes locked — click-drag pans. Unlock to rearrange nodes.">locked</button>
             <button class="toolBtn" id="fit">fit</button>
             <button class="toolBtn paneToggle" data-target="graphPane">—</button>
           </div>

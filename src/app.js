@@ -100,7 +100,6 @@ function loadText(name, text) {
   classifyLoops();
   createCy(buildDisplayElements());
   applyLayout();
-  updateDatasetChip(name);
   applyPlaybackToGraph();
   renderSystemsTree();
   populateZonePicker();
@@ -575,7 +574,6 @@ function loadGeometry(name, text) {
   geometry = parseEpjsonGeometry(epjson);
   $('zone3dEmpty').style.display = 'none';
   renderZones3d();
-  updateDatasetChip();
   populateZonePicker();
   if (units) renderSystemsTree(); // refresh the ZONES section with geometry-only zones
   maybeApplyHashSelection();
@@ -599,7 +597,6 @@ function loadPlayback(name, text) {
   $('timeSlider').value = '0';
   buildMonthRuler();
   updateLegend();
-  updateDatasetChip();
   updateMiniChart();
   updateTime();
   // loop classification just changed; refresh a stale loop-family selection
@@ -609,15 +606,6 @@ function loadPlayback(name, text) {
     if (fe && fe.nonempty()) selectLoopFamily(selection.familyKey);
     else clearSelection();
   }
-}
-
-function updateDatasetChip(bndName) {
-  if (bndName) updateDatasetChip.bnd = bndName;
-  const bits = [];
-  if (updateDatasetChip.bnd) bits.push(`<b>${esc(updateDatasetChip.bnd.replace(/\.bnd$/i, ''))}</b>`);
-  if (geometry) bits.push(`${geometry.zones.length} zones`);
-  if (playback) bits.push(`${Object.keys(playback.nodes || {}).length} node series`);
-  $('datasetChip').innerHTML = bits.length ? bits.join(' · ') : 'no dataset';
 }
 
 /* ── playback stats / scales ─────────────────────────────────── */
@@ -1770,7 +1758,7 @@ $('lockToggle').addEventListener('click', () => {
   if (cy) cy.autoungrabify(graphLocked);
   const btn = $('lockToggle');
   btn.classList.toggle('on', graphLocked);
-  btn.textContent = graphLocked ? '🔒 locked' : '🔓 unlocked';
+  btn.textContent = graphLocked ? 'locked' : 'unlocked';
   btn.title = graphLocked
     ? 'nodes locked — click-drag pans. Unlock to rearrange nodes.'
     : 'nodes unlocked — drag to rearrange. Lock to pan by dragging.';
@@ -1993,7 +1981,7 @@ function wireSplitter(splitter, onDrag) {
 
 wireSplitter($('splitSystems'), x => {
   const rect = $('workspace').getBoundingClientRect();
-  const width = Math.min(420, Math.max(170, x - rect.left));
+  const width = Math.min(640, Math.max(170, x - rect.left));
   $('systems').style.width = `${width}px`;
 });
 
@@ -2021,6 +2009,8 @@ for (const btn of document.querySelectorAll('.paneToggle')) {
     const pane = $(btn.dataset.target);
     const closed = pane.classList.toggle('closed');
     btn.textContent = closed ? '⊞' : '—';
+    // a manual toggle of the 3D pane opts out of auto priority-collapse
+    if (btn.dataset.target === 'zonePane') zoneUserManaged = true;
     viewsResized();
     // re-fit the graph so its content fills the resized pane (collapsing
     // the 3D / a side panel widens the graph; without this the diagram
@@ -2028,6 +2018,24 @@ for (const btn of document.querySelectorAll('.paneToggle')) {
     if (cy) cy.fit(cy.elements(':visible'), 30);
   });
 }
+
+// Responsive priority: the graph and 3D panes can't both honor their min-widths
+// in a narrow center, which used to make their toolbars overlap. Instead, when
+// there isn't room for both, collapse the 3D pane to its rail so the graph takes
+// priority (reopen it by clicking the rail). A manual toggle opts out for good.
+let zoneUserManaged = false;
+function autoManagePanes() {
+  if (zoneUserManaged) return;
+  const zone = $('zonePane');
+  const narrow = $('panesRow').clientWidth < 560; // graph 300 + zone 260
+  if (narrow === zone.classList.contains('closed')) return; // already correct
+  zone.classList.toggle('closed', narrow);
+  const tgl = zone.querySelector('.paneToggle');
+  if (tgl) tgl.textContent = narrow ? '⊞' : '—';
+  viewsResized();
+  if (cy) cy.fit(cy.elements(':visible'), 30);
+}
+new ResizeObserver(autoManagePanes).observe($('panesRow'));
 
 clearSelection();
 updateLegendForMetric(); // match the default (System) metric before any data loads
