@@ -39,6 +39,7 @@ let currentMetric = 'temperature';
 let loopFunctionColors = null; // loopName -> hex, from classifyLoops()
 let currentTheme = 'dark';
 let zoneOpacity = 0.18;        // opacity of non-selected 3D zones (slider)
+let isoDim = 0.28;             // opacity of graph elements outside the isolate scope (slider)
 let hiddenZones = new Set();   // UPPER(zone) names hidden from graph + 3D
 let units = null;             // { units, unitOf } from assignUnits
 let collapsedSet = new Set(); // unit ids currently collapsed
@@ -244,7 +245,7 @@ function buildCyStyle(theme) {
     { selector: 'edge.sel, edge.linked', style: {
         color: c.sel, 'font-weight': 'bold', 'text-background-opacity': 0.96, 'z-index': 20
     }},
-    { selector: '.faded', style: { opacity: 0.28, 'text-opacity': 0.18 } },
+    { selector: '.faded', style: { opacity: isoDim, 'text-opacity': isoDim * 0.64 } },
     { selector: '.preview', style: {
         'underlay-color': c.preview, 'underlay-opacity': 0.20, 'underlay-padding': 4, 'z-index': 7
     }},
@@ -1770,6 +1771,14 @@ $('resetCam').addEventListener('click', fitThreeCamera);
 $('zoneOpacity').addEventListener('input', () => {
   zoneOpacity = Number($('zoneOpacity').value) / 100;
   updateZoneHighlights();
+});
+$('isoDim').addEventListener('input', () => {
+  isoDim = Number($('isoDim').value) / 100;
+  // append-override the .faded rule live (full rebuild would drop the
+  // metric/layout edge overlays); buildCyStyle also reads isoDim so a
+  // later theme rebuild keeps the chosen value
+  if (cy) cy.style().selector('.faded')
+    .style({ opacity: isoDim, 'text-opacity': isoDim * 0.64 }).update();
 });
 $('zonePick').addEventListener('change', () => {
   const v = $('zonePick').value;
