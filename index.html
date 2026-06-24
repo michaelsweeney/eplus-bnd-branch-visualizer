@@ -39,6 +39,7 @@
     <div class="legendItem" id="legendTemp"><span>temp</span><span class="legendBar" id="legendTempBar"></span></div>
     <div class="legendItem" id="legendFlow"><span>flow</span><span class="legendBar" id="legendFlowBar"></span></div>
   </div>
+  <button id="aboutBtn" title="about BND·VIZ">about</button>
   <div id="settingsWrap">
     <button id="settingsBtn" title="display settings">⚙</button>
     <div id="settingsPanel" hidden>
@@ -175,6 +176,41 @@
     <option value="30" selected>30 steps/s</option>
     <option value="120">120 steps/s</option>
   </select>
+</div>
+
+<div id="aboutOverlay" hidden>
+  <div id="aboutModal" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+    <div id="aboutHead">
+      <span id="aboutTitle">About BND·VIZ</span>
+      <button id="aboutClose" title="close (Esc)" aria-label="close">✕</button>
+    </div>
+    <div id="aboutBody">
+      <p>A browser-only EnergyPlus HVAC explorer. It reads the system topology
+      from a run's <code>eplusout.bnd</code> report, 3D zone geometry from the
+      epJSON model, and node temperatures and flows from <code>eplusout.sql</code>,
+      and shows them as synchronized graph, 3D, and chart views over one annual
+      timeline. Everything runs client-side; nothing is uploaded.</p>
+
+      <p><a href="https://github.com/michaelsweeney/eplus-bnd-branch-visualizer"
+        target="_blank" rel="noopener">github.com/michaelsweeney/eplus-bnd-branch-visualizer</a></p>
+
+      <h4>What it reads</h4>
+      <p>Drag files onto the app; each layer degrades gracefully. A <code>.bnd</code>
+      alone gives the full topology graph — every EnergyPlus run writes one, any
+      version, no preparation. Add the epJSON for 3D zone geometry. Add a playback
+      JSON for the temporal layer.</p>
+
+      <h4>Bring your own model</h4>
+      <p>Only the playback layer needs the model prepared before the run: it requires
+      the System Node Temperature and System Node Mass Flow Rate output variables
+      and <code>Output:SQLite</code>. The CLI helpers (<code>npm run prep</code> and
+      <code>npm run export:playback</code>) inject those outputs, optionally run the
+      version-matched engine, and convert the resulting <code>eplusout.sql</code>
+      into the playback JSON the app loads. See the
+      <a href="https://github.com/michaelsweeney/eplus-bnd-branch-visualizer"
+        target="_blank" rel="noopener">repo README</a> for the full steps.</p>
+    </div>
+  </div>
 </div>
 
 <div id="dropToast">reading file…</div>

@@ -1835,7 +1835,9 @@ function openCtxMenu(x, y, entries) {
 }
 function closeCtxMenu() { $('ctxMenu').classList.remove('show'); }
 window.addEventListener('pointerdown', e => { if (!$('ctxMenu').contains(e.target)) closeCtxMenu(); });
-window.addEventListener('keydown', e => { if (e.code === 'Escape') closeCtxMenu(); });
+window.addEventListener('keydown', e => {
+  if (e.code === 'Escape') { closeCtxMenu(); if (!$('aboutOverlay').hidden) $('aboutOverlay').hidden = true; }
+});
 $('cy').addEventListener('contextmenu', e => e.preventDefault());
 
 function onGraphContextMenu(e) {
@@ -1897,6 +1899,14 @@ $('settingsBtn').addEventListener('click', () => {
 });
 window.addEventListener('pointerdown', e => {
   if (!$('settingsWrap').contains(e.target)) $('settingsPanel').hidden = true;
+});
+
+/* ── about modal ─────────────────────────────────────────────── */
+const setAbout = open => { $('aboutOverlay').hidden = !open; };
+$('aboutBtn').addEventListener('click', () => setAbout(true));
+$('aboutClose').addEventListener('click', () => setAbout(false));
+$('aboutOverlay').addEventListener('click', e => {
+  if (e.target === $('aboutOverlay')) setAbout(false);
 });
 
 for (const btn of document.querySelectorAll('#unitToggle button')) {
