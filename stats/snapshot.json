@@ -1,0 +1,58 @@
+{
+  "generated": "2026-06-29T21:30:00Z",
+  "window": {
+    "since": "2026-05-30T00:00:00Z",
+    "until": "2026-06-29T21:30:00Z"
+  },
+  "repos": {
+    "timestep": {
+      "label": "Timestep",
+      "url": "https://github.com/michaelsweeney/timestep",
+      "traffic14d": {
+        "views": 69,
+        "viewUniques": 19,
+        "clones": 495,
+        "cloneUniques": 109
+      }
+    },
+    "eplus-bnd-branch-visualizer": {
+      "label": "EnergyPlus BND Visualizer",
+      "url": "https://github.com/michaelsweeney/eplus-bnd-branch-visualizer",
+      "site": "https://eplus-bnd-viz.pages.dev",
+      "traffic14d": {
+        "views": 24,
+        "viewUniques": 13,
+        "clones": 183,
+        "cloneUniques": 80
+      },
+      "cf30d": {
+        "pageviews": 30,
+        "visits": 30,
+        "daily": [
+          {
+            "date": "2026-06-25",
+            "pv": 10,
+            "visits": 10
+          },
+          {
+            "date": "2026-06-29",
+            "pv": 20,
+            "visits": 20
+          }
+        ],
+        "topReferers": [
+          {
+            "country": "US",
+            "referer": "(direct)",
+            "count": 20
+          },
+          {
+            "country": "US",
+            "referer": "www.linkedin.com",
+            "count": 10
+          }
+        ]
+      }
+    }
+  }
+}

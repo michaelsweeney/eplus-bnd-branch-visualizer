@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Stats — timestep &amp; bnd-viz</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2430; --border:#2a3340;
+    --txt:#e6edf3; --dim:#8b949e; --accent:#58a6ff; --good:#3fb950; --warn:#d29922;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  .wrap{max-width:980px;margin:0 auto;padding:32px 20px 64px}
+  header{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px}
+  h1{font-size:22px;margin:0;font-weight:650;letter-spacing:-.01em}
+  .meta{color:var(--dim);font-size:13px}
+  .proj{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px 22px;margin-top:22px}
+  .proj h2{margin:0 0 2px;font-size:17px;display:flex;align-items:center;gap:10px}
+  .proj h2 a{color:var(--accent);text-decoration:none}
+  .proj h2 a:hover{text-decoration:underline}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:16px}
+  .sub a{color:var(--dim)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+  .card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+  .card .n{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+  .card .l{color:var(--dim);font-size:12px;margin-top:3px}
+  .card .x{color:var(--dim);font-size:11px;margin-top:2px}
+  .accent .n{color:var(--accent)} .good .n{color:var(--good)}
+  .section-label{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+    margin:18px 0 8px;font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  td,th{text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)}
+  th{color:var(--dim);font-weight:500}
+  td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+  .bars{display:flex;align-items:flex-end;gap:6px;height:70px;margin-top:6px}
+  .bar{flex:1;min-width:8px;background:var(--accent);border-radius:3px 3px 0 0;position:relative;opacity:.85}
+  .bar span{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:10px;color:var(--dim)}
+  .bar small{position:absolute;bottom:-18px;left:0;right:0;text-align:center;font-size:9px;color:var(--dim)}
+  .note{color:var(--dim);font-size:12px;margin-top:10px}
+  .pill{display:inline-block;font-size:11px;color:var(--dim);border:1px solid var(--border);
+    border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:middle}
+  .err{color:var(--warn)}
+  footer{color:var(--dim);font-size:12px;margin-top:32px;border-top:1px solid var(--border);padding-top:14px}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Project Stats</h1>
+    <div class="meta" id="meta">loading…</div>
+  </header>
+  <div class="meta">GitHub stars &amp; release downloads are <b>live</b>; traffic and site visits are from the last snapshot.</div>
+
+  <div id="root"></div>
+
+  <footer>
+    Refresh the snapshot (Cloudflare visits + repo traffic) with <code>stats/refresh.sh</code>.
+    Serve locally with <code>python3 -m http.server -d stats</code> then open
+    <code>localhost:8000/dashboard.html</code>.
+  </footer>
+</div>
+
+<script>
+const GH = "https://api.github.com/repos/michaelsweeney/";
+const fmt = n => n==null ? "–" : n.toLocaleString();
+
+function card(n, label, extra, cls=""){
+  return `<div class="card ${cls}"><div class="n">${n}</div><div class="l">${label}</div>${extra?`<div class="x">${extra}</div>`:""}</div>`;
+}
+
+async function ghJson(path){
+  const r = await fetch(GH+path, {headers:{Accept:"application/vnd.github+json"}});
+  if(!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+async function liveGithub(repo){
+  // public, unauthenticated: stars/forks/watchers + summed release download counts
+  const [meta, releases] = await Promise.all([
+    ghJson(repo),
+    ghJson(repo+"/releases").catch(()=>[])
+  ]);
+  let dl = 0;
+  for(const rel of releases) for(const a of (rel.assets||[]))
+    if(!/\.(yml|blockmap)$/.test(a.name)) dl += a.download_count||0;
+  return {stars:meta.stargazers_count, forks:meta.forks_count,
+          watchers:meta.subscribers_count, downloads:dl, hasReleases:releases.length>0};
+}
+
+function barChart(daily){
+  if(!daily || !daily.length) return "";
+  const max = Math.max(...daily.map(d=>d.pv), 1);
+  return `<div class="bars">${daily.map(d=>{
+    const h = Math.max(6, Math.round(d.pv/max*60));
+    const day = d.date.slice(5);
+    return `<div class="bar" style="height:${h}px"><span>${d.pv}</span><small>${day}</small></div>`;
+  }).join("")}</div><div style="height:14px"></div>`;
+}
+
+function refTable(refs){
+  if(!refs || !refs.length) return "";
+  return `<table><tr><th>Referer</th><th>Country</th><th class="r">Views</th></tr>${
+    refs.map(r=>`<tr><td>${r.referer}</td><td>${r.country||"–"}</td><td class="r">${r.count}</td></tr>`).join("")
+  }</table>`;
+}
+
+async function render(){
+  let snap;
+  try { snap = await (await fetch("snapshot.json",{cache:"no-store"})).json(); }
+  catch(e){ document.getElementById("root").innerHTML =
+    `<p class="err">Could not load snapshot.json — run <code>stats/refresh.sh</code> first.</p>`; return; }
+
+  document.getElementById("meta").innerHTML =
+    `snapshot ${new Date(snap.generated).toLocaleString()} · 30-day window`;
+
+  const root = document.getElementById("root");
+  for(const [key, r] of Object.entries(snap.repos)){
+    const el = document.createElement("div");
+    el.className = "proj";
+    el.innerHTML = `<h2><a href="${r.url}" target="_blank" rel="noopener">${r.label}</a>
+        ${r.site?`<span class="pill"><a href="${r.site}" target="_blank" rel="noopener" style="color:inherit">${r.site.replace('https://','')}</a></span>`:""}</h2>
+      <div class="sub" data-gh>fetching live GitHub stats…</div>
+      <div class="cards" data-cards></div>`;
+    root.appendChild(el);
+
+    // gated metrics (from snapshot)
+    const cardsEl = el.querySelector("[data-cards]");
+    let html = "";
+    if(r.cf30d){
+      html += card(fmt(r.cf30d.visits), "site visits", "Cloudflare · 30d", "accent");
+      html += card(fmt(r.cf30d.pageviews), "pageviews", "Cloudflare · 30d");
+    }
+    const t = r.traffic14d;
+    html += card(fmt(t.views), "repo views", `${fmt(t.viewUniques)} unique · 14d`);
+    html += card(fmt(t.cloneUniques), "unique cloners", `${fmt(t.clones)} clones · 14d`);
+    cardsEl.insertAdjacentHTML("beforeend", html);
+
+    if(r.cf30d && r.cf30d.daily && r.cf30d.daily.length){
+      el.insertAdjacentHTML("beforeend", `<div class="section-label">Daily site visits</div>`+barChart(r.cf30d.daily));
+      if(r.cf30d.topReferers && r.cf30d.topReferers.length)
+        el.insertAdjacentHTML("beforeend", `<div class="section-label">Top referers</div>`+refTable(r.cf30d.topReferers));
+    }
+
+    // live GitHub
+    const subEl = el.querySelector("[data-gh]");
+    try{
+      const g = await liveGithub(key);
+      const gh = card(fmt(g.stars),"stars","live","good")
+        + card(fmt(g.forks),"forks","live")
+        + card(fmt(g.watchers),"watchers","live")
+        + (g.hasReleases ? card(fmt(g.downloads),"release downloads","live · all versions") : "");
+      cardsEl.insertAdjacentHTML("afterbegin", gh);
+      subEl.textContent = "";
+      subEl.style.display = "none";
+    }catch(e){
+      subEl.innerHTML = `<span class="err">live GitHub fetch failed (${e.message}) — rate-limited? values omitted.</span>`;
+    }
+  }
+}
+render();
+</script>
+</body>
+</html>
