@@ -40,6 +40,13 @@
   .bar{flex:1;min-width:8px;background:var(--accent);border-radius:3px 3px 0 0;position:relative;opacity:.85}
   .bar span{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:10px;color:var(--dim)}
   .bar small{position:absolute;bottom:-18px;left:0;right:0;text-align:center;font-size:9px;color:var(--dim)}
+  .delta{font-size:12px;font-weight:600;vertical-align:middle}
+  .delta.up{color:var(--good)} .delta.down{color:#f85149}
+  .spark{color:var(--accent);display:block;margin-top:6px}
+  .trend{display:flex;flex-wrap:wrap;gap:22px;margin-top:12px}
+  .trend .t{min-width:130px}
+  .trend .tl{color:var(--dim);font-size:12px}
+  .trend .tv{font-size:15px;font-variant-numeric:tabular-nums}
   .note{color:var(--dim);font-size:12px;margin-top:10px}
   .pill{display:inline-block;font-size:11px;color:var(--dim);border:1px solid var(--border);
     border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:middle}
@@ -69,8 +76,27 @@
 const GH = "https://api.github.com/repos/michaelsweeney/";
 const fmt = n => n==null ? "–" : n.toLocaleString();
 
-function card(n, label, extra, cls=""){
-  return `<div class="card ${cls}"><div class="n">${n}</div><div class="l">${label}</div>${extra?`<div class="x">${extra}</div>`:""}</div>`;
+function delta(d){
+  if(d==null||d===0) return "";
+  const up = d>0;
+  return `<span class="delta ${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(d)}</span>`;
+}
+function card(n, label, extra, cls="", d){
+  return `<div class="card ${cls}"><div class="n">${n} ${delta(d)}</div><div class="l">${label}</div>${extra?`<div class="x">${extra}</div>`:""}</div>`;
+}
+function sparkline(vals){
+  vals = vals.filter(v=>v!=null);
+  if(vals.length<2) return "";
+  const w=120,h=28,p=2, min=Math.min(...vals), max=Math.max(...vals), rng=(max-min)||1;
+  const pts = vals.map((v,i)=>{
+    const x = p + i*(w-2*p)/(vals.length-1);
+    const y = h-p - (v-min)/rng*(h-2*p);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const lx = w-p, ly = h-p-(vals[vals.length-1]-min)/rng*(h-2*p);
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2.2" fill="currentColor"/></svg>`;
 }
 
 async function ghJson(path){
@@ -109,14 +135,30 @@ function refTable(refs){
   }</table>`;
 }
 
+async function loadHistory(){
+  try{
+    const txt = await (await fetch("history.jsonl",{cache:"no-store"})).text();
+    return txt.trim().split("\n").filter(Boolean).map(JSON.parse)
+              .sort((a,b)=> a.generated < b.generated ? -1 : 1);
+  }catch(e){ return []; }
+}
+// series of a single metric for one repo across all history points
+const series = (hist, key, metric) =>
+  hist.map(h => h.repos?.[key]?.[metric]).filter(v=>v!=null);
+
 async function render(){
   let snap;
   try { snap = await (await fetch("snapshot.json",{cache:"no-store"})).json(); }
   catch(e){ document.getElementById("root").innerHTML =
     `<p class="err">Could not load snapshot.json — run <code>stats/refresh.sh</code> first.</p>`; return; }
 
+  const hist = await loadHistory();
+  const prev = hist.length>=2 ? hist[hist.length-2] : null;       // point before the latest
+  const prevDate = prev ? prev.date : null;
+
   document.getElementById("meta").innerHTML =
-    `snapshot ${new Date(snap.generated).toLocaleString()} · 30-day window`;
+    `snapshot ${new Date(snap.generated).toLocaleString()} · 30-day window` +
+    (hist.length>1 ? ` · ${hist.length} points since ${hist[0].date}` : ` · tracking started ${snap.generated.slice(0,10)}`);
 
   const root = document.getElementById("root");
   for(const [key, r] of Object.entries(snap.repos)){
@@ -130,14 +172,17 @@ async function render(){
 
     // gated metrics (from snapshot)
     const cardsEl = el.querySelector("[data-cards]");
+    const pr = prev?.repos?.[key] || {};
     let html = "";
     if(r.cf30d){
-      html += card(fmt(r.cf30d.visits), "site visits", "Cloudflare · 30d", "accent");
+      html += card(fmt(r.cf30d.visits), "site visits", "Cloudflare · 30d", "accent",
+                   pr.cfVisits30d!=null ? r.cf30d.visits - pr.cfVisits30d : undefined);
       html += card(fmt(r.cf30d.pageviews), "pageviews", "Cloudflare · 30d");
     }
     const t = r.traffic14d;
-    html += card(fmt(t.views), "repo views", `${fmt(t.viewUniques)} unique · 14d`);
-    html += card(fmt(t.cloneUniques), "unique cloners", `${fmt(t.clones)} clones · 14d`);
+    html += card(fmt(t.views), "repo views", `${fmt(t.viewUniques)} unique · 14d`, "",
+                 pr.views14d!=null ? t.views - pr.views14d : undefined);
+    html += card(fmt(t.cloneUniques), "unique cloners", `${fmt(t.clones)} clones · 14d · mostly bots`);
     cardsEl.insertAdjacentHTML("beforeend", html);
 
     if(r.cf30d && r.cf30d.daily && r.cf30d.daily.length){
@@ -146,17 +191,35 @@ async function render(){
         el.insertAdjacentHTML("beforeend", `<div class="section-label">Top referers</div>`+refTable(r.cf30d.topReferers));
     }
 
+    // clones caveat
+    el.insertAdjacentHTML("beforeend",
+      `<div class="note">Clone counts (and most "views") are dominated by CI/mirroring bots — treat stars, release downloads and site visits as the real human signal.</div>`);
+
     // live GitHub
     const subEl = el.querySelector("[data-gh]");
+    const lastR = hist.length ? (hist[hist.length-1].repos?.[key] || {}) : {};
     try{
       const g = await liveGithub(key);
-      const gh = card(fmt(g.stars),"stars","live","good")
+      const dStars = lastR.stars!=null ? g.stars - lastR.stars : undefined;
+      const dDl    = lastR.downloads!=null ? g.downloads - lastR.downloads : undefined;
+      const sinceTxt = prevDate ? `since ${prevDate}` : "live";
+      const gh = card(fmt(g.stars),"stars","live","good", dStars)
         + card(fmt(g.forks),"forks","live")
         + card(fmt(g.watchers),"watchers","live")
-        + (g.hasReleases ? card(fmt(g.downloads),"release downloads","live · all versions") : "");
+        + (g.hasReleases ? card(fmt(g.downloads),"release downloads","live · all versions","", dDl) : "");
       cardsEl.insertAdjacentHTML("afterbegin", gh);
-      subEl.textContent = "";
       subEl.style.display = "none";
+
+      // trend sparklines across snapshots (current live value tacked on the end)
+      const starSeries = [...series(hist,key,"stars"), g.stars];
+      const dlSeries   = [...series(hist,key,"downloads"), g.downloads];
+      const cfSeries   = series(hist,key,"cfVisits30d");
+      const trend = [];
+      if(starSeries.length>=2) trend.push(`<div class="t"><div class="tl">stars (${sinceTxt})</div><div class="tv">${fmt(g.stars)} ${delta(dStars)}</div>${sparkline(starSeries)}</div>`);
+      if(g.hasReleases && dlSeries.length>=2) trend.push(`<div class="t"><div class="tl">downloads</div><div class="tv">${fmt(g.downloads)} ${delta(dDl)}</div>${sparkline(dlSeries)}</div>`);
+      if(cfSeries.length>=2) trend.push(`<div class="t"><div class="tl">site visits (30d)</div><div class="tv">${fmt(cfSeries[cfSeries.length-1])}</div>${sparkline(cfSeries)}</div>`);
+      if(trend.length) el.insertAdjacentHTML("beforeend",
+        `<div class="section-label">Trend over snapshots</div><div class="trend">${trend.join("")}</div>`);
     }catch(e){
       subEl.innerHTML = `<span class="err">live GitHub fetch failed (${e.message}) — rate-limited? values omitted.</span>`;
     }
