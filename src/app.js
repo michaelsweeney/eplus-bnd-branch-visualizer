@@ -55,7 +55,7 @@ let scopeZoneNames = null;    // Set of UPPER zone names in scope, or null
 let selection = null;
 
 const $ = id => document.getElementById(id);
-const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const upper = s => String(s ?? '').toUpperCase();
 
 /* ── loading ─────────────────────────────────────────────────── */
@@ -2066,10 +2066,22 @@ const DEMOS = {
   'small-office': { bnd: 'demo-data/small-office.bnd', geometry: 'demo-data/small-office.epJSON', data: 'demo-data/small-office.playback.json' }
 };
 
+// Only allow same-origin/relative sources. Rejects absolute cross-origin URLs
+// so a crafted #bnd/#geometry/#data link can't make a visitor's browser fetch
+// (and then parse + render) attacker-controlled content on our origin.
+function sameOrigin(url) {
+  try {
+    return new URL(url, location.href).origin === location.origin;
+  } catch {
+    return false;
+  }
+}
+
 function loadFromUrls(srcs, opts = {}) {
   for (const [key, load] of [['bnd', loadText], ['geometry', loadGeometry], ['data', loadPlayback]]) {
     const url = srcs[key];
     if (!url) continue;
+    if (!sameOrigin(url)) { toast(`${key}=${url}: blocked cross-origin source`); continue; }
     if (key === 'data') $('readoutValue').textContent = 'loading playback…';
     fetch(url)
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })

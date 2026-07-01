@@ -1,0 +1,10 @@
+# Cloudflare Pages security headers.
+# CSP scoped to what the app actually loads: same-origin bundle/data, Google
+# Fonts, and the Cloudflare Web Analytics beacon. script-src omits
+# 'unsafe-inline', so an injected inline event handler (e.g. from a poisoned
+# object name in a user's model file) cannot execute.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
